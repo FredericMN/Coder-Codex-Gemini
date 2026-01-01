@@ -179,8 +179,14 @@ async def codex_tool(
     if SESSION_ID:
         cmd.extend(["resume", str(SESSION_ID)])
 
-    # shell=False 时不需要转义，直接传递原始 prompt
-    cmd += ['--', PROMPT]
+    # PROMPT 作为位置参数
+    # Windows 下需要将换行符转义，避免命令行截断
+    import os
+    if os.name == "nt":
+        escaped_prompt = PROMPT.replace('\r\n', '\\n').replace('\n', '\\n')
+        cmd += ['--', escaped_prompt]
+    else:
+        cmd += ['--', PROMPT]
 
     all_messages: list[Dict[str, Any]] = []
     agent_messages = ""

@@ -153,10 +153,11 @@ async def glm_tool(
             "error": f"配置加载失败：{e}",
         }
 
-    # 构建命令（使用 json 格式，与 codex 保持一致）
-    # 使用 --system-prompt 强制覆盖项目配置
+    # 构建命令（使用 json 格式）
+    # 注意：-p 是标志选项，PROMPT 作为位置参数放在最后
     cmd = [
-        "claude", "-p", PROMPT,
+        "claude",
+        "-p",  # print mode 标志
         "--output-format", "json",
         "--system-prompt", "你是 GLM-4.7 模型，一个专注的代码执行助手。请直接执行用户的代码任务，不要闲聊或询问需求。",
     ]
@@ -168,6 +169,16 @@ async def glm_tool(
     # 会话恢复
     if SESSION_ID:
         cmd.extend(["-r", SESSION_ID])
+
+    # PROMPT 作为位置参数放在最后
+    # Windows 下需要将换行符转义，避免命令行截断
+    import os
+    if os.name == "nt":
+        # Windows: 将实际换行符替换为 \\n 字面字符串
+        escaped_prompt = PROMPT.replace('\r\n', '\\n').replace('\n', '\\n')
+        cmd.append(escaped_prompt)
+    else:
+        cmd.append(PROMPT)
 
     all_messages: list[Dict[str, Any]] = []
     result_content = ""
