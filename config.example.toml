@@ -6,7 +6,7 @@
 # 从智谱 AI 平台获取：https://open.bigmodel.cn
 api_token = "your-glm-api-token"
 
-# API 地址（可选，默认为智谱 AI 的 Anthropic 兼容接口）
+# API 地址（必填，智谱 AI 的 Anthropic 兼容接口）
 base_url = "https://open.bigmodel.cn/api/anthropic"
 
 # 模型名称（可选，默认 glm-4.7）

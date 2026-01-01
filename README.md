@@ -249,6 +249,8 @@ Codex 和 GLM 的意见**仅供参考**。你必须有自己的判断，合理�
 - SESSION_ID (string): 会话 ID，用于多轮对话，默认空字符串（开启新会话）
 - return_all_messages (boolean): 返回完整消息，默认 False
 
+> **提示**：同类开发任务或问题修复应尽量保持同一会话（复用 SESSION_ID），让 GLM 保持上下文连贯性。
+
 **返回值**：
 ```json
 // 成功时
