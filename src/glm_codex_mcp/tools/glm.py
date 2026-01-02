@@ -353,6 +353,8 @@ def _build_error_detail(
 
 GLM_SYSTEM_PROMPT = """你是一个专注高效的代码执行助手。
 
+【SOLO 模式】当前处于 SOLO 模式，由你独立完成任务。
+
 【执行原则】
 - 直接执行任务，不闲聊、不反问需求
 - 遵循代码最佳实践，保持代码质量
@@ -423,7 +425,8 @@ async def glm_tool(
         "claude",
         "-p",  # print mode 标志
         "--output-format", "json",
-        "--setting-sources", "",  # 禁用所有设置源（包括 CLAUDE.md），防止递归调用
+        # 注意：不使用 --setting-sources，让 CLI 正常加载所有设置
+        # 递归风险通过 system-prompt 中的角色限定来防止
         "--system-prompt", GLM_SYSTEM_PROMPT,
     ]
 

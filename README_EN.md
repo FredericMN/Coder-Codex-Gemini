@@ -260,6 +260,8 @@ cp -r skills/glm-codex-workflow ~/.claude/skills/
 
 **Workflow Enforcement**: For any code-related request, you must first load the `glm-codex-workflow` Skill to get the complete collaboration guide, then decide whether to call GLM/Codex tools. Even if the user directly says "use GLM" or "call Codex", you must analyze the task according to the Skill guide before executing the call.
 
+**SOLO Mode**: When entering【SOLO Mode】, it means the task is to be completed independently and meticulously by you (Claude), without triggering Skills or calling GLM/Codex MCP tools.
+
 GLM is your code executor, Codex is your code reviewer. **All code decisions belong to you (Claude)**.
 
 When performing code development tasks, the `glm-codex-workflow` Skill will automatically trigger.
