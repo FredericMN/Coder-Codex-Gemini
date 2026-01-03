@@ -9,9 +9,9 @@
 
 [中文文档](README.md)
 
-**Claude (Opus) + Coder + Codex + Gemini Multi-Model Collaborative MCP Server**
+**Claude + Coder + Codex + Gemini Multi-Model Collaborative MCP Server**
 
-Empower **Claude (Opus)** as the architect to orchestrate **Coder** for code execution, **Codex** for code quality review, and **Gemini** for expert consultation,<br>forming an **automated multi-party collaboration loop**.
+Empower **Claude** as the architect to orchestrate **Coder** for code execution, **Codex** for code quality review, and **Gemini** for expert consultation,<br>forming an **automated multi-party collaboration loop**.
 
 [Quick Start](#-quick-start) • [Core Features](#-core-features) • [Architecture](#-architecture) • [Tools Details](#️-tools-details)
 
@@ -25,8 +25,8 @@ CCG-MCP connects multiple top-tier models to build an efficient, cost-effective,
 
 | Dimension | Value Proposition |
 | :--- | :--- |
-| **🧠 Cost Optimization** | **Opus** handles high-intelligence reasoning & orchestration (expensive but powerful), while **Coder** handles heavy lifting of code execution (cost-effective volume). |
-| **🧩 Complementary Capabilities** | **Opus** compensates for **Coder**'s creativity gaps, **Codex** provides an independent third-party review perspective, and **Gemini** offers diverse expert opinions. |
+| **🧠 Cost Optimization** | **Claude** handles high-intelligence reasoning & orchestration (expensive but powerful), while **Coder** handles heavy lifting of code execution (cost-effective volume). |
+| **🧩 Complementary Capabilities** | **Claude** compensates for **Coder**'s creativity gaps, **Codex** provides an independent third-party review perspective, and **Gemini** offers diverse expert opinions. |
 | **🛡️ Quality Assurance** | Introduces a dual-review mechanism: **Claude Initial Review** + **Codex Final Review** to ensure code robustness. |
 | **🔄 Fully Automated Loop** | Supports a fully automated flow of `Decompose` → `Execute` → `Review` → `Retry`, minimizing human intervention. |
 | **🔧 Flexible Architecture** | **Skills + MCP** hybrid architecture: MCP provides tool capabilities, Skills provides workflow guidance, on-demand loading saves tokens. |
@@ -35,10 +35,11 @@ CCG-MCP connects multiple top-tier models to build an efficient, cost-effective,
 
 In this system, each model has a clear responsibility:
 
-*   **Claude (Opus)**: 👑 **Architect / Coordinator**
+*   **Claude**: 👑 **Architect / Coordinator**
     *   Responsible for requirement analysis, task decomposition, prompt optimization, and final decision-making.
 *   **Coder**: 🔨 **Executor**
-    *   Configurable with any backend model supporting Claude Code API. Responsible for concrete code generation, modification, and batch task processing.
+    *   Refers to **high-throughput, execution-oriented** models (e.g., GLM-4.7, DeepSeek-V3, etc.).
+    *   Can connect to **any third-party model supporting Claude Code API**, responsible for concrete code generation, modification, and batch task processing.
 *   **Codex (OpenAI)**: ⚖️ **Reviewer / Senior Code Consultant**
     *   Responsible for independent code quality control, providing objective Code Reviews, and serving as a consultant for architecture design and complex solutions.
 *   **Gemini**: 🧠 **Versatile Expert (Optional)**
@@ -52,7 +53,7 @@ flowchart TB
         User(["👤 User Requirement"])
     end
 
-    subgraph ClaudeLayer ["Claude (Opus) - Architect"]
+    subgraph ClaudeLayer ["Claude - Architect"]
         Claude["🧠 Analysis & Decomposition"]
         Prompt["📝 Construct Precise Prompt"]
         Review["🔍 Review & Decision"]
