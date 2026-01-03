@@ -132,11 +132,11 @@ flowchart TB
 
 我们提供一键配置脚本，自动完成所有设置步骤：
 
-**Windows (PowerShell)**
+**Windows（双击运行或终端执行）**
 ```powershell
 git clone https://github.com/FredericMN/Coder-Codex-Gemini.git
 cd Coder-Codex-Gemini
-.\setup.ps1
+.\setup.bat
 ```
 
 **macOS/Linux**

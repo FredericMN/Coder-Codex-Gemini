@@ -126,11 +126,11 @@ Before starting, ensure you have installed the following tools:
 
 We provide one-click setup scripts that automate all configuration steps:
 
-**Windows (PowerShell)**
+**Windows (Double-click or run in terminal)**
 ```powershell
 git clone https://github.com/FredericMN/Coder-Codex-Gemini.git
 cd Coder-Codex-Gemini
-.\setup.ps1
+.\setup.bat
 ```
 
 **macOS/Linux**
