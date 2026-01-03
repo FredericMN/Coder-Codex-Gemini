@@ -113,6 +113,34 @@ flowchart TB
 *   **Gemini CLI**（可选）: 如需使用 Gemini 工具 ([安装指南](https://github.com/google-gemini/gemini-cli))
 *   **Coder 后端 API Token**: 需自行配置，推荐使用 GLM-4.7 作为参考案例，从 [智谱 AI](https://open.bigmodel.cn) 获取。
 
+### Windows 用户注意事项
+
+在 Windows 上使用 CCG-MCP，请确保以下 CLI 工具已正确添加到系统 PATH：
+
+| 工具 | 验证命令 | 常见安装位置 |
+|------|----------|--------------|
+| `claude` | `where claude` | `%APPDATA%\npm\claude.cmd` 或通过 npm 全局安装 |
+| `codex` | `where codex` | `%APPDATA%\npm\codex.cmd` 或通过 npm 全局安装 |
+| `gemini` | `where gemini` | `%APPDATA%\npm\gemini.cmd` 或通过 npm 全局安装 |
+| `uv` | `where uv` | `%USERPROFILE%\.local\bin\uv.exe` |
+
+**添加到 PATH 的方法**：
+1. 打开"系统属性" → "高级" → "环境变量"
+2. 在"用户变量"中找到 `Path`，点击"编辑"
+3. 添加工具所在目录（如 `%APPDATA%\npm`）
+4. 重启终端使配置生效
+
+**验证安装**：
+```powershell
+# 检查所有工具是否可用
+claude --version
+codex --version
+gemini --version  # 可选
+uv --version
+```
+
+> **提示**：如果遇到 "命令不存在" 错误，请检查 PATH 配置是否正确。
+
 ### 2. 安装 MCP 服务器
 
 **方式一：远程安装（推荐）**

@@ -184,6 +184,7 @@ def run_codex_command(
         stderr=subprocess.STDOUT,
         universal_newlines=True,
         encoding='utf-8',
+        errors='replace',  # 处理非 UTF-8 字符，避免 UnicodeDecodeError
     )
 
     # 通过 stdin 传递 prompt，然后关闭 stdin
@@ -346,6 +347,7 @@ def safe_codex_command(
         stderr=subprocess.STDOUT,
         universal_newlines=True,
         encoding='utf-8',
+        errors='replace',  # 处理非 UTF-8 字符，避免 UnicodeDecodeError
     )
 
     thread: Optional[threading.Thread] = None

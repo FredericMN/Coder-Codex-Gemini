@@ -185,6 +185,7 @@ def run_gemini_command(
         stderr=subprocess.STDOUT,
         universal_newlines=True,
         encoding='utf-8',
+        errors='replace',  # 处理非 UTF-8 字符，避免 UnicodeDecodeError
         cwd=str(cwd) if cwd else None,
     )
 
@@ -350,6 +351,7 @@ def safe_gemini_command(
         stderr=subprocess.STDOUT,
         universal_newlines=True,
         encoding='utf-8',
+        errors='replace',  # 处理非 UTF-8 字符，避免 UnicodeDecodeError
         cwd=str(cwd) if cwd else None,
     )
 

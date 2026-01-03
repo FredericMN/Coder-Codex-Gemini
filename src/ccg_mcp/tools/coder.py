@@ -191,6 +191,7 @@ def run_coder_command(
         stderr=subprocess.STDOUT,
         universal_newlines=True,
         encoding='utf-8',
+        errors='replace',  # 处理非 UTF-8 字符，避免 UnicodeDecodeError
         env=env,
         cwd=cwd,
     )
@@ -357,6 +358,7 @@ def safe_coder_command(
         stderr=subprocess.STDOUT,
         universal_newlines=True,
         encoding='utf-8',
+        errors='replace',  # 处理非 UTF-8 字符，避免 UnicodeDecodeError
         env=env,
         cwd=cwd,
     )
