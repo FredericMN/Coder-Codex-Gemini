@@ -6,11 +6,11 @@
 
 **流程**：
 1. Claude 拆解需求，明确接口列表
-2. 调用 GLM 批量生成代码
+2. 调用 Coder 批量生成代码
 3. 确认结果，调用 Codex review
 4. 根据 review 结果迭代
 
-**GLM 调用示例**：
+**Coder 调用示例**：
 ```
 PROMPT: 请生成以下 REST API 接口：
 - GET /users - 获取用户列表
@@ -29,10 +29,10 @@ SESSION_ID: ""  # 新会话
 
 **流程**：
 1. Claude 分析问题，定位原因
-2. 调用 GLM 修复代码
+2. 调用 Coder 修复代码
 3. 调用 Codex review 修复质量
 
-**GLM 调用示例**：
+**Coder 调用示例**：
 ```
 PROMPT: 修复登录功能的 token 过期问题
 目标文件：src/auth/login.py
@@ -56,7 +56,7 @@ PROMPT: 请 review src/api/ 目录下的改动
 
 cd: /project
 sandbox: read-only
-SESSION_ID: "abc-123"  # 复用上一步 GLM 的会话，保持上下文连贯
+SESSION_ID: "abc-123"  # 复用上一步 Coder 的会话，保持上下文连贯
 ```
 
-**注意**：若之前调用过 GLM 生成代码，建议复用同一 SESSION_ID，让 Codex 了解完整上下文。
+**注意**：若之前调用过 Coder 生成代码，建议复用同一 SESSION_ID，让 Codex 了解完整上下文。

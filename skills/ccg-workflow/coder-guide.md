@@ -1,4 +1,8 @@
-# GLM 工具详细规范
+# Coder 工具详细规范
+
+## 工具说明
+
+Coder 是可配置的代码执行工具，需要用户自行配置后端模型。推荐使用 GLM-4.7 作为参考案例，也可选用其他支持 Claude Code API 的模型（如 Minimax、DeepSeek 等）。
 
 ## 参数说明
 
@@ -21,15 +25,15 @@
 // 成功
 {
   "success": true,
-  "tool": "glm",
+  "tool": "coder",
   "SESSION_ID": "uuid-string",
-  "result": "GLM 回复内容"
+  "result": "Coder 回复内容"
 }
 
 // 失败（结构化错误）
 {
   "success": false,
-  "tool": "glm",
+  "tool": "coder",
   "error": "错误摘要信息",
   "error_kind": "idle_timeout | timeout | command_not_found | upstream_error | ...",
   "error_detail": {
@@ -91,7 +95,7 @@
 
 ## 重试策略
 
-GLM 默认 **不自动重试**（有写入副作用），如需重试：
+Coder 默认 **不自动重试**（有写入副作用），如需重试：
 - 显式设置 `max_retries=1` 或更高
 - 仅对幂等操作启用重试
 - 重试采用指数退避（0.5s → 1s → 2s）

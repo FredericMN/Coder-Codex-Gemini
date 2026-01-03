@@ -1,6 +1,6 @@
-"""GLM-CODEX-MCP 服务器主体
+"""CCG-MCP 服务器主体
 
-提供 glm、codex 和 gemini 三个 MCP 工具，实现多方协作。
+提供 coder、codex 和 gemini 三个 MCP 工具，实现多方协作。
 """
 
 from __future__ import annotations
@@ -11,23 +11,26 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 from mcp.server.fastmcp import FastMCP
 from pydantic import Field
 
-from glm_codex_mcp.tools.glm import glm_tool
-from glm_codex_mcp.tools.codex import codex_tool
-from glm_codex_mcp.tools.gemini import gemini_tool
+from ccg_mcp.tools.coder import coder_tool
+from ccg_mcp.tools.codex import codex_tool
+from ccg_mcp.tools.gemini import gemini_tool
 
 # 创建 MCP 服务器实例
-mcp = FastMCP("GLM-CODEX-MCP Server")
+mcp = FastMCP("CCG-MCP Server")
 
 
 @mcp.tool(
-    name="glm",
+    name="coder",
     description="""
-    调用 GLM-4.7 执行代码生成或修改任务。
+    调用可配置的后端模型执行代码生成或修改任务。
 
     **角色定位**：代码执行者
     - 根据精确的 Prompt 生成或修改代码
     - 执行批量代码任务
     - 成本低，执行力强
+
+    **可配置后端**：需要用户自行配置，推荐使用 GLM-4.7 作为参考案例，
+    也可选用其他支持 Claude Code API 的模型（如 Minimax、DeepSeek 等）。
 
     **使用场景**：
     - 新增功能：根据需求生成代码
@@ -35,7 +38,7 @@ mcp = FastMCP("GLM-CODEX-MCP Server")
     - 重构：根据目标进行代码重构
     - 批量任务：执行大量相似的代码修改
 
-    **注意**：GLM 需要写权限，默认 sandbox 为 workspace-write
+    **注意**：Coder 需要写权限，默认 sandbox 为 workspace-write
 
     **Prompt 模板**：
     ```
@@ -52,8 +55,8 @@ mcp = FastMCP("GLM-CODEX-MCP Server")
     ```
     """,
 )
-async def glm(
-    PROMPT: Annotated[str, "发送给 GLM 的任务指令，需要精确、具体"],
+async def coder(
+    PROMPT: Annotated[str, "发送给 Coder 的任务指令，需要精确、具体"],
     cd: Annotated[Path, "工作目录"],
     sandbox: Annotated[
         Literal["read-only", "workspace-write", "danger-full-access"],
@@ -64,11 +67,11 @@ async def glm(
     return_metrics: Annotated[bool, "是否在返回值中包含指标数据"] = False,
     timeout: Annotated[int, "空闲超时（秒），无输出超过此时间触发超时，默认 300 秒"] = 300,
     max_duration: Annotated[int, "总时长硬上限（秒），默认 1800 秒（30 分钟），0 表示无限制"] = 1800,
-    max_retries: Annotated[int, "最大重试次数，默认 0（GLM 有写入副作用，默认不重试）"] = 0,
+    max_retries: Annotated[int, "最大重试次数，默认 0（Coder 有写入副作用，默认不重试）"] = 0,
     log_metrics: Annotated[bool, "是否将指标输出到 stderr"] = False,
 ) -> Dict[str, Any]:
-    """执行 GLM 代码任务"""
-    return await glm_tool(
+    """执行 Coder 代码任务"""
+    return await coder_tool(
         PROMPT=PROMPT,
         cd=cd,
         sandbox=sandbox,
@@ -93,7 +96,7 @@ async def glm(
     - 给出明确结论：✅ 通过 / ⚠️ 建议优化 / ❌ 需要修改
 
     **使用场景**：
-    - GLM 完成代码后，调用 Codex 进行质量审核
+    - Coder 完成代码后，调用 Codex 进行质量审核
     - 需要独立第三方视角时
     - 代码合入前的最终检查
 
@@ -176,9 +179,9 @@ async def codex(
     调用 Gemini CLI 进行代码执行、技术咨询或代码审核。
 
     **角色定位**：多面手（与 Claude、Codex 同等级别的顶级 AI 专家）
-    - 🧠 高阶顾问：架构设计、技术选型、复杂方案讨论
-    - ⚖️ 独立审核：代码 Review、方案评审、质量把关
-    - 🔨 代码执行：原型开发、功能实现（尤其擅长前端/UI）
+    - 高阶顾问：架构设计、技术选型、复杂方案讨论
+    - 独立审核：代码 Review、方案评审、质量把关
+    - 代码执行：原型开发、功能实现（尤其擅长前端/UI）
 
     **使用场景**：
     - 用户明确要求使用 Gemini

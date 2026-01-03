@@ -1,7 +1,7 @@
-"""GLM 工具实现
+"""Coder 工具实现
 
-调用 GLM-4.7 执行代码生成或修改任务。
-通过设置环境变量让 claude CLI 使用 GLM 后端。
+调用可配置的后端模型执行代码生成或修改任务。
+通过设置环境变量让 claude CLI 使用配置的模型后端（如 GLM-4.7、Minimax、DeepSeek 等）。
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from typing import Annotated, Any, Dict, Generator, Iterator, Literal, Optional
 
 from pydantic import Field
 
-from glm_codex_mcp.config import build_glm_env, get_config
+from ccg_mcp.config import build_coder_env, get_config
 
 
 # ============================================================================
@@ -145,7 +145,7 @@ class MetricsCollector:
 # 命令执行
 # ============================================================================
 
-def run_glm_command(
+def run_coder_command(
     cmd: list[str],
     env: dict[str, str],
     cwd: Path | None = None,
@@ -153,7 +153,7 @@ def run_glm_command(
     max_duration: int = 1800,
     prompt: str = "",
 ) -> Generator[str, None, tuple[Optional[int], int]]:
-    """执行 GLM 命令并流式返回输出
+    """执行 Coder 命令并流式返回输出
 
     Args:
         cmd: 命令和参数列表
@@ -251,7 +251,7 @@ def run_glm_command(
         # 检查总时长硬上限（优先级高）
         if max_duration > 0 and (now - start_time) >= max_duration:
             timeout_error = CommandTimeoutError(
-                f"glm 执行超时（总时长超过 {max_duration}s），进程已终止。",
+                f"coder 执行超时（总时长超过 {max_duration}s），进程已终止。",
                 is_idle=False
             )
             break
@@ -259,7 +259,7 @@ def run_glm_command(
         # 检查空闲超时
         if (now - last_activity_time) >= timeout:
             timeout_error = CommandTimeoutError(
-                f"glm 空闲超时（{timeout}s 无输出），进程已终止。",
+                f"coder 空闲超时（{timeout}s 无输出），进程已终止。",
                 is_idle=True
             )
             break
@@ -299,7 +299,7 @@ def run_glm_command(
             process.wait()
         # 进程等待超时（罕见情况），视为总时长超时
         timeout_error = CommandTimeoutError(
-            f"glm 进程等待超时，进程已终止。",
+            f"coder 进程等待超时，进程已终止。",
             is_idle=False
         )
     finally:
@@ -322,7 +322,7 @@ def run_glm_command(
 
 
 @contextmanager
-def safe_glm_command(
+def safe_coder_command(
     cmd: list[str],
     env: dict[str, str],
     cwd: Path | None = None,
@@ -330,12 +330,12 @@ def safe_glm_command(
     max_duration: int = 1800,
     prompt: str = "",
 ) -> Iterator[Generator[str, None, tuple[Optional[int], int]]]:
-    """安全执行 GLM 命令的上下文管理器
+    """安全执行 Coder 命令的上下文管理器
 
     确保在任何情况下（包括异常）都能正确清理子进程。
 
     用法:
-        with safe_glm_command(cmd, env, cwd, timeout, max_duration, prompt) as gen:
+        with safe_coder_command(cmd, env, cwd, timeout, max_duration, prompt) as gen:
             for line in gen:
                 process_line(line)
     """
@@ -449,14 +449,14 @@ def safe_glm_command(
 
                 if max_duration > 0 and (now - start_time) >= max_duration:
                     timeout_error = CommandTimeoutError(
-                        f"glm 执行超时（总时长超过 {max_duration}s），进程已终止。",
+                        f"coder 执行超时（总时长超过 {max_duration}s），进程已终止。",
                         is_idle=False
                     )
                     break
 
                 if (now - last_activity_time) >= timeout:
                     timeout_error = CommandTimeoutError(
-                        f"glm 空闲超时（{timeout}s 无输出），进程已终止。",
+                        f"coder 空闲超时（{timeout}s 无输出），进程已终止。",
                         is_idle=True
                     )
                     break
@@ -487,7 +487,7 @@ def safe_glm_command(
                     process.kill()
                     process.wait()
                 timeout_error = CommandTimeoutError(
-                    f"glm 进程等待超时，进程已终止。",
+                    f"coder 进程等待超时，进程已终止。",
                     is_idle=False
                 )
             finally:
@@ -544,18 +544,18 @@ def _build_error_detail(
 
 
 # ============================================================================
-# GLM System Prompt
+# Coder System Prompt
 # ============================================================================
 
-GLM_SYSTEM_PROMPT = "你是一个专注高效的代码执行助手。【执行原则】- 直接执行任务，不闲聊、不反问需求 - 遵循代码最佳实践，保持代码质量 - 在任务范围内可自主决策实现细节【输出规范】- 仅输出任务结果与必要的改动说明 - 如有代码改动可附 diff（内容较多时节选关键部分并说明）"
+CODER_SYSTEM_PROMPT = "你是一个专注高效的代码执行助手。【执行原则】- 直接执行任务，不闲聊、不反问需求 - 遵循代码最佳实践，保持代码质量 - 在任务范围内可自主决策实现细节【输出规范】- 仅输出任务结果与必要的改动说明 - 如有代码改动可附 diff（内容较多时节选关键部分并说明）"
 
 
 # ============================================================================
 # 主工具函数
 # ============================================================================
 
-async def glm_tool(
-    PROMPT: Annotated[str, "发送给 GLM 的任务指令，需要精确、具体"],
+async def coder_tool(
+    PROMPT: Annotated[str, "发送给 Coder 的任务指令，需要精确、具体"],
     cd: Annotated[Path, "工作目录"],
     sandbox: Annotated[
         Literal["read-only", "workspace-write", "danger-full-access"],
@@ -569,25 +569,28 @@ async def glm_tool(
     max_retries: Annotated[int, "最大重试次数，默认 0（不重试）"] = 0,
     log_metrics: Annotated[bool, "是否将指标输出到 stderr"] = False,
 ) -> Dict[str, Any]:
-    """执行 GLM 代码任务
+    """执行 Coder 代码任务
 
-    调用 GLM-4.7 执行代码生成或修改任务。
+    调用可配置的后端模型执行代码生成或修改任务。
 
     **角色定位**：代码执行者
     - 根据精确的 Prompt 生成或修改代码
     - 执行批量代码任务
     - 成本低，执行力强
 
-    **注意**：GLM 需要写权限，默认 sandbox 为 workspace-write
-    **重试策略**：GLM 默认不重试（有写入副作用），除非显式设置 max_retries
+    **可配置后端**：需要用户自行配置，推荐使用 GLM-4.7 作为参考案例，
+    也可选用其他支持 Claude Code API 的模型（如 Minimax、DeepSeek 等）。
+
+    **注意**：Coder 需要写权限，默认 sandbox 为 workspace-write
+    **重试策略**：Coder 默认不重试（有写入副作用），除非显式设置 max_retries
     """
     # 初始化指标收集器
-    metrics = MetricsCollector(tool="glm", prompt=PROMPT, sandbox=sandbox)
+    metrics = MetricsCollector(tool="coder", prompt=PROMPT, sandbox=sandbox)
 
     # 获取配置并构建环境变量
     try:
         config = get_config()
-        env = build_glm_env(config)
+        env = build_coder_env(config)
     except Exception as e:
         error_msg = f"配置加载失败：{e}"
         metrics.finish(success=False, error_kind=ErrorKind.CONFIG_ERROR)
@@ -596,7 +599,7 @@ async def glm_tool(
 
         result: Dict[str, Any] = {
             "success": False,
-            "tool": "glm",
+            "tool": "coder",
             "error": error_msg,
             "error_kind": ErrorKind.CONFIG_ERROR,
             "error_detail": _build_error_detail(error_msg),
@@ -618,7 +621,7 @@ async def glm_tool(
         cmd.append("--dangerously-skip-permissions")
 
     # 5. 全局设定（Prompt 注入）
-    cmd.extend(["--append-system-prompt", GLM_SYSTEM_PROMPT])
+    cmd.extend(["--append-system-prompt", CODER_SYSTEM_PROMPT])
 
     # 6. 动态变量（会话恢复）
     if SESSION_ID:
@@ -647,7 +650,7 @@ async def glm_tool(
         last_lines: list[str] = []
 
         try:
-            with safe_glm_command(cmd, env, cd, timeout, max_duration, prompt=normalized_prompt) as gen:
+            with safe_coder_command(cmd, env, cd, timeout, max_duration, prompt=normalized_prompt) as gen:
                 try:
                     for line in gen:
                         last_lines.append(line)
@@ -699,7 +702,7 @@ async def glm_tool(
 
             result = {
                 "success": False,
-                "tool": "glm",
+                "tool": "coder",
                 "error": str(e),
                 "error_kind": ErrorKind.COMMAND_NOT_FOUND,
                 "error_detail": _build_error_detail(str(e)),
@@ -739,7 +742,7 @@ async def glm_tool(
             success = False
             if not error_kind:
                 error_kind = ErrorKind.EMPTY_RESULT
-            err_message = "未能获取 GLM 响应内容。\n\n" + err_message
+            err_message = "未能获取 Coder 响应内容。\n\n" + err_message
 
         # 检查退出码
         if exit_code is not None and exit_code != 0 and success:
@@ -786,7 +789,7 @@ async def glm_tool(
     if success:
         result = {
             "success": True,
-            "tool": "glm",
+            "tool": "coder",
             "SESSION_ID": session_id,
             "result": result_content,
             "duration": metrics.format_duration(),
@@ -801,7 +804,7 @@ async def glm_tool(
 
         result = {
             "success": False,
-            "tool": "glm",
+            "tool": "coder",
             "error": err_message,
             "error_kind": error_kind,
             "error_detail": _build_error_detail(

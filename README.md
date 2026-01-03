@@ -1,4 +1,4 @@
-# GLM-CODEX-MCP
+# Coder-Codex-Gemini (CCG)
 
 <div align="center">
 
@@ -9,9 +9,9 @@
 
 [English Docs](README_EN.md)
 
-**Claude (Opus) + GLM + Codex + Gemini 多方协作 MCP 服务器**
+**Claude (Opus) + Coder + Codex + Gemini 多模型协作 MCP 服务器**
 
-让 **Claude (Opus)** 作为架构师调度 **GLM** 执行代码任务、**Codex** 审核代码质量，**Gemini** 提供专家咨询，<br>形成**自动化的多方协作闭环**。
+让 **Claude (Opus)** 作为架构师调度 **Coder** 执行代码任务、**Codex** 审核代码质量，**Gemini** 提供专家咨询，<br>形成**自动化的多方协作闭环**。
 
 [快速开始](#-快速开始) • [核心特性](#-核心特性) • [架构说明](#-架构说明) • [工具详解](#️-工具详解)
 
@@ -21,12 +21,12 @@
 
 ## 🌟 核心特性
 
-GLM-CODEX-MCP 通过连接多个顶级模型，构建了一个高效、低成本且高质量的代码生成与审核流水线：
+CCG-MCP 通过连接多个顶级模型，构建了一个高效、低成本且高质量的代码生成与审核流水线：
 
 | 维度 | 价值说明 |
 | :--- | :--- |
-| **🧠 成本优化** | **Opus** 负责高智商思考与调度（贵但强），**GLM** 负责繁重的代码执行（量大管饱）。 |
-| **🧩 能力互补** | **Opus** 补足 **GLM** 的创造力短板，**Codex** 提供独立的第三方审核视角，**Gemini** 提供多元化专家意见。 |
+| **🧠 成本优化** | **Opus** 负责高智商思考与调度（贵但强），**Coder** 负责繁重的代码执行（量大管饱）。 |
+| **🧩 能力互补** | **Opus** 补足 **Coder** 的创造力短板，**Codex** 提供独立的第三方审核视角，**Gemini** 提供多元化专家意见。 |
 | **🛡️ 质量保障** | 引入双重审核机制：**Claude 初审** + **Codex 终审**，确保代码健壮性。 |
 | **🔄 全自动闭环** | 支持 `拆解` → `执行` → `审核` → `重试` 的全自动流程，最大程度减少人工干预。 |
 | **🔧 灵活架构** | **Skills + MCP** 混合架构：MCP 提供工具能力，Skills 提供工作流指导，按需加载节约 Token。 |
@@ -37,8 +37,8 @@ GLM-CODEX-MCP 通过连接多个顶级模型，构建了一个高效、低成本
 
 *   **Claude (Opus)**: 👑 **架构师 / 协调者**
     *   负责需求分析、任务拆解、Prompt 优化以及最终决策。
-*   **GLM-4.7**: 🔨 **执行者**
-    *   负责具体的代码生成、修改、批量任务处理。
+*   **Coder**: 🔨 **执行者**
+    *   可配置任意支持 Claude Code API 的模型后端。负责具体的代码生成、修改、批量任务处理。
 *   **Codex (OpenAI)**: ⚖️ **审核官 / 高级代码顾问**
     *   负责独立的代码质量把关，提供客观的 Code Review，也可作为架构设计和复杂方案的咨询顾问。
 *   **Gemini**: 🧠 **多面手专家（可选）**
@@ -59,19 +59,19 @@ flowchart TB
     end
 
     subgraph MCPLayer ["MCP 服务器"]
-        MCP{{"⚙️ GLM-CODEX-MCP"}}
+        MCP{{"⚙️ CCG-MCP"}}
     end
 
     subgraph ToolLayer ["执行层"]
-        GLM["🔨 GLM 工具<br><code>claude CLI → GLM-4.7</code><br>sandbox: workspace-write"]
+        Coder["🔨 Coder 工具<br><code>claude CLI → 可配置后端</code><br>sandbox: workspace-write"]
         Codex["⚖️ Codex 工具<br><code>codex CLI</code><br>sandbox: read-only"]
     end
 
     User --> Claude
     Claude --> Prompt
-    Prompt -->|"glm(PROMPT, cd)"| MCP
-    MCP -->|"流式 JSON"| GLM
-    GLM -->|"SESSION_ID + result"| Review
+    Prompt -->|"coder(PROMPT, cd)"| MCP
+    MCP -->|"流式 JSON"| Coder
+    Coder -->|"SESSION_ID + result"| Review
 
     Review -->|"需要审核"| MCP
     MCP -->|"流式 JSON"| Codex
@@ -89,7 +89,7 @@ flowchart TB
        ↓
 2. Claude 分析、拆解任务，构造精确 Prompt
        ↓
-3. 调用 glm 工具 → GLM-4.7 执行代码生成/修改
+3. 调用 coder 工具 → 后端模型执行代码生成/修改
        ↓
 4. Claude 审查结果，决定是否需要 Codex 审核
        ↓
@@ -110,37 +110,57 @@ flowchart TB
 *   **Claude Code**: 版本 **≥ v2.0.56** ([安装指南](https://code.claude.com/docs))
 *   **Codex CLI**: 版本 **≥ v0.61.0** ([安装指南](https://developers.openai.com/codex/quickstart))
 *   **Gemini CLI**（可选）: 如需使用 Gemini 工具 ([安装指南](https://github.com/google-gemini/gemini-cli))
-*   **GLM API Token**: 从 [智谱 AI](https://open.bigmodel.cn) 获取。
+*   **Coder 后端 API Token**: 需自行配置，推荐使用 GLM-4.7 作为参考案例，从 [智谱 AI](https://open.bigmodel.cn) 获取。
 
 ### 2. 安装 MCP 服务器
 
-我们只需安装本项目 `glm-codex-mcp` 即可。它内部集成了对系统 `codex` 命令的调用。
-
+**方式一：远程安装（推荐）**
 ```bash
-claude mcp add glm-codex -s user --transport stdio -- uvx --refresh --from git+https://github.com/FredericMN/GLM-CODEX-MCP.git glm-codex-mcp
+claude mcp add ccg -s user --transport stdio -- uvx --refresh --from git+https://github.com/FredericMN/Coder-Codex-Gemini.git ccg-mcp
 ```
 
-### 3. 配置 GLM
+**方式二：本地安装（开发调试）**
+
+如果已 clone 到本地：
+```bash
+# 进入项目目录
+cd /path/to/Coder-Codex-Gemini
+
+# 安装依赖
+uv sync
+
+# 注册 MCP 服务器（使用本地路径）
+claude mcp add ccg -s user --transport stdio -- uv run --directory /path/to/Coder-Codex-Gemini ccg-mcp
+```
+
+**卸载 MCP 服务器**
+```bash
+claude mcp remove ccg -s user
+```
+
+### 3. 配置 Coder
 
 推荐使用 **配置文件** 方式进行管理。
+
+> **可配置后端**：Coder 工具通过 Claude Code CLI 调用后端模型。**需要用户自行配置**，推荐使用 GLM-4.7 作为参考案例，您也可以选用其他支持 Claude Code API 的模型（如 Minimax、DeepSeek 等）。
 
 **创建配置目录**:
 ```bash
 # Windows
-mkdir %USERPROFILE%\.glm-codex-mcp
+mkdir %USERPROFILE%\.ccg-mcp
 
 # macOS/Linux
-mkdir -p ~/.glm-codex-mcp
+mkdir -p ~/.ccg-mcp
 ```
 
-**创建配置文件** `~/.glm-codex-mcp/config.toml`:
+**创建配置文件** `~/.ccg-mcp/config.toml`:
 ```toml
-[glm]
-api_token = "your-glm-api-token"  # 必填
-base_url = "https://open.bigmodel.cn/api/anthropic"
-model = "glm-4.7"
+[coder]
+api_token = "your-api-token"  # 必填
+base_url = "https://open.bigmodel.cn/api/anthropic"  # 示例：GLM API
+model = "glm-4.7"  # 示例：GLM-4.7，可替换为其他模型
 
-[glm.env]
+[coder.env]
 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
 ```
 
@@ -151,13 +171,13 @@ Skills 层提供工作流指导，确保 Claude 正确使用 MCP 工具。
 ```bash
 # Windows (PowerShell)
 if (!(Test-Path "$env:USERPROFILE\.claude\skills")) { mkdir "$env:USERPROFILE\.claude\skills" }
-xcopy /E /I "skills\glm-codex-workflow" "$env:USERPROFILE\.claude\skills\glm-codex-workflow"
+xcopy /E /I "skills\ccg-workflow" "$env:USERPROFILE\.claude\skills\ccg-workflow"
 # 可选：安装 Gemini 协作 Skill
 xcopy /E /I "skills\gemini-collaboration" "$env:USERPROFILE\.claude\skills\gemini-collaboration"
 
 # macOS/Linux
 mkdir -p ~/.claude/skills
-cp -r skills/glm-codex-workflow ~/.claude/skills/
+cp -r skills/ccg-workflow ~/.claude/skills/
 # 可选：安装 Gemini 协作 Skill
 cp -r skills/gemini-collaboration ~/.claude/skills/
 ```
@@ -171,11 +191,11 @@ cp -r skills/gemini-collaboration ~/.claude/skills/
 
 ## 强制规则
 
-- **默认协作**：所有代码/文档改动任务，**必须**委托 GLM 执行，阶段性完成后**必须**调用 Codex 审核
+- **默认协作**：所有代码/文档改动任务，**必须**委托 Coder 执行，阶段性完成后**必须**调用 Codex 审核
 - **跳过需确认**：若判断无需协作，**必须立即暂停**并报告：
-  > "这是一个简单的[描述]任务，我判断无需调用 GLM/Codex。是否同意？等待您的确认。"
-- **违规即终止**：未经确认跳过 GLM 执行或 Codex 审核 = **流程违规**
-- **Skill 优先**：调用 MCP 工具前，**优先阅读对应 Skill**（`glm-codex-workflow`、`gemini-collaboration`）以了解最佳实践
+  > "这是一个简单的[描述]任务，我判断无需调用 Coder/Codex。是否同意？等待您的确认。"
+- **违规即终止**：未经确认跳过 Coder 执行或 Codex 审核 = **流程违规**
+- **Skill 优先**：调用 MCP 工具前，**优先阅读对应 Skill**（`ccg-workflow`、`gemini-collaboration`）以了解最佳实践
 - **会话复用**：始终保存 `SESSION_ID` 保持上下文
 
 ---
@@ -188,15 +208,15 @@ cp -r skills/gemini-collaboration ~/.claude/skills/
 
 | 角色 | 定位 | 用途 | sandbox | 重试 |
 |------|------|------|---------|------|
-| **GLM** | 代码执行者 | 生成/修改代码、批量任务 | workspace-write | 默认不重试 |
+| **Coder** | 代码执行者 | 生成/修改代码、批量任务 | workspace-write | 默认不重试 |
 | **Codex** | 代码审核者/高阶顾问 | 架构设计、质量把关、Review | read-only | 默认 1 次 |
 | **Gemini** | 高阶顾问（按需） | 架构设计、第二意见、前端/UI | workspace-write (yolo) | 默认 1 次 |
 
 ## 核心流程
 
-1. **GLM 执行**：所有改动任务委托 GLM 处理
-2. **Claude 验收**：GLM 完成后快速检查，有误则 Claude 自行修复
-3. **Codex 审核**：阶段性开发完成后调用 review，有误委托 GLM 修复，持续迭代直至通过
+1. **Coder 执行**：所有改动任务委托 Coder 处理
+2. **Claude 验收**：Coder 完成后快速检查，有误则 Claude 自行修复
+3. **Codex 审核**：阶段性开发完成后调用 review，有误委托 Coder 修复，持续迭代直至通过
 
 ## 编码前准备（复杂任务）
 
@@ -222,7 +242,7 @@ claude mcp list
 
 ✅ 看到以下输出即表示安装成功：
 ```text
-glm-codex: ... - ✓ Connected
+ccg: ... - ✓ Connected
 ```
 
 ### 7. (可选) 权限配置
@@ -233,9 +253,9 @@ glm-codex: ... - ✓ Connected
 {
   "permissions": {
     "allow": [
-      "mcp__glm-codex__glm",
-      "mcp__glm-codex__codex",
-      "mcp__glm-codex__gemini"
+      "mcp__ccg__coder",
+      "mcp__ccg__codex",
+      "mcp__ccg__gemini"
     ]
   }
 }
@@ -243,9 +263,11 @@ glm-codex: ... - ✓ Connected
 
 ## 🛠️ 工具详解
 
-### `glm` - 代码执行者
+### `coder` - 代码执行者
 
-调用 GLM-4.7 模型执行具体的代码生成或修改任务。
+调用可配置的后端模型执行具体的代码生成或修改任务。
+
+> **可配置后端**：Coder 工具通过 Claude Code CLI 调用后端模型。**需要用户自行配置**，推荐使用 GLM-4.7 作为参考案例，您也可以选用其他支持 Claude Code API 的模型（如 Minimax、DeepSeek 等）。
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 | :--- | :--- | :---: | :--- | :--- |
@@ -257,7 +279,7 @@ glm-codex: ... - ✓ Connected
 | `return_metrics` | bool | - | `false` | 是否在返回值中包含耗时等指标 |
 | `timeout` | int | - | `300` | 空闲超时（秒），无输出超过此时间触发超时 |
 | `max_duration` | int | - | `1800` | 总时长硬上限（秒），默认 30 分钟，0 表示无限制 |
-| `max_retries` | int | - | `0` | 最大重试次数（GLM 默认不重试） |
+| `max_retries` | int | - | `0` | 最大重试次数（Coder 默认不重试） |
 | `log_metrics` | bool | - | `false` | 是否将指标输出到 stderr |
 
 ### `codex` - 代码审核者
@@ -329,7 +351,7 @@ glm-codex: ... - ✓ Connected
 // 成功（默认行为，return_metrics=false）
 {
   "success": true,
-  "tool": "glm",
+  "tool": "coder",
   "SESSION_ID": "uuid-string",
   "result": "回复内容"
 }
@@ -337,14 +359,14 @@ glm-codex: ... - ✓ Connected
 // 成功（启用指标，return_metrics=true）
 {
   "success": true,
-  "tool": "glm",
+  "tool": "coder",
   "SESSION_ID": "uuid-string",
   "result": "回复内容",
   "metrics": {
     "ts_start": "2026-01-02T10:00:00.000Z",
     "ts_end": "2026-01-02T10:00:05.123Z",
     "duration_ms": 5123,
-    "tool": "glm",
+    "tool": "coder",
     "sandbox": "workspace-write",
     "success": true,
     "retries": 0,
@@ -361,7 +383,7 @@ glm-codex: ... - ✓ Connected
 // 失败（结构化错误，默认行为）
 {
   "success": false,
-  "tool": "glm",
+  "tool": "coder",
   "error": "错误摘要",
   "error_kind": "idle_timeout | timeout | upstream_error | ...",
   "error_detail": {
@@ -377,7 +399,7 @@ glm-codex: ... - ✓ Connected
 // 失败（启用指标，return_metrics=true）
 {
   "success": false,
-  "tool": "glm",
+  "tool": "coder",
   "error": "错误摘要",
   "error_kind": "idle_timeout | timeout | upstream_error | ...",
   "error_detail": {
@@ -392,7 +414,7 @@ glm-codex: ... - ✓ Connected
     "ts_start": "2026-01-02T10:00:00.000Z",
     "ts_end": "2026-01-02T10:00:05.123Z",
     "duration_ms": 5123,
-    "tool": "glm",
+    "tool": "coder",
     "sandbox": "workspace-write",
     "success": false,
     "retries": 0,
@@ -429,8 +451,8 @@ glm-codex: ... - ✓ Connected
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/FredericMN/GLM-CODEX-MCP.git
-cd GLM-CODEX-MCP
+git clone https://github.com/FredericMN/Coder-Codex-Gemini.git
+cd Coder-Codex-Gemini
 
 # 2. 安装依赖 (使用 uv)
 uv sync
@@ -439,14 +461,14 @@ uv sync
 uv run pytest
 
 # 4. 本地调试运行
-uv run glm-codex-mcp
+uv run ccg-mcp
 ```
 
 ## 📚 参考资源
 
 - **CodexMCP**: [GitHub](https://github.com/GuDaStudio/codexmcp) - 核心参考实现
 - **FastMCP**: [GitHub](https://github.com/jlowin/fastmcp) - 高效的 MCP 框架
-- **GLM API**: [智谱 AI](https://open.bigmodel.cn) - 强大的国产大模型
+- **GLM API**: [智谱 AI](https://open.bigmodel.cn) - 强大的国产大模型（推荐作为 Coder 后端）
 - **Claude Code**: [Documentation](https://docs.anthropic.com/en/docs/claude-code)
 
 ## 📄 License

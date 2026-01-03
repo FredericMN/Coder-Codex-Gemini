@@ -1,4 +1,4 @@
-# GLM-CODEX-MCP
+# Coder-Codex-Gemini (CCG)
 
 <div align="center">
 
@@ -7,11 +7,11 @@
 ![MCP](https://img.shields.io/badge/MCP-1.20.0+-green.svg)
 ![Status](https://img.shields.io/badge/status-beta-orange.svg)
 
-**Claude (Opus) + GLM + Codex + Gemini Collaborative MCP Server**
-
 [中文文档](README.md)
 
-Empower **Claude (Opus)** as the architect to orchestrate **GLM** for code execution, **Codex** for code quality review, and **Gemini** for expert consultation,<br>forming an **automated multi-party collaboration loop**.
+**Claude (Opus) + Coder + Codex + Gemini Multi-Model Collaborative MCP Server**
+
+Empower **Claude (Opus)** as the architect to orchestrate **Coder** for code execution, **Codex** for code quality review, and **Gemini** for expert consultation,<br>forming an **automated multi-party collaboration loop**.
 
 [Quick Start](#-quick-start) • [Core Features](#-core-features) • [Architecture](#-architecture) • [Tools Details](#️-tools-details)
 
@@ -21,12 +21,12 @@ Empower **Claude (Opus)** as the architect to orchestrate **GLM** for code execu
 
 ## 🌟 Core Features
 
-GLM-CODEX-MCP connects multiple top-tier models to build an efficient, cost-effective, and high-quality pipeline for code generation and review:
+CCG-MCP connects multiple top-tier models to build an efficient, cost-effective, and high-quality pipeline for code generation and review:
 
 | Dimension | Value Proposition |
 | :--- | :--- |
-| **🧠 Cost Optimization** | **Opus** handles high-intelligence reasoning & orchestration (expensive but powerful), while **GLM** handles heavy lifting of code execution (cost-effective volume). |
-| **🧩 Complementary Capabilities** | **Opus** compensates for **GLM**'s creativity gaps, **Codex** provides an independent third-party review perspective, and **Gemini** offers diverse expert opinions. |
+| **🧠 Cost Optimization** | **Opus** handles high-intelligence reasoning & orchestration (expensive but powerful), while **Coder** handles heavy lifting of code execution (cost-effective volume). |
+| **🧩 Complementary Capabilities** | **Opus** compensates for **Coder**'s creativity gaps, **Codex** provides an independent third-party review perspective, and **Gemini** offers diverse expert opinions. |
 | **🛡️ Quality Assurance** | Introduces a dual-review mechanism: **Claude Initial Review** + **Codex Final Review** to ensure code robustness. |
 | **🔄 Fully Automated Loop** | Supports a fully automated flow of `Decompose` → `Execute` → `Review` → `Retry`, minimizing human intervention. |
 | **🔧 Flexible Architecture** | **Skills + MCP** hybrid architecture: MCP provides tool capabilities, Skills provides workflow guidance, on-demand loading saves tokens. |
@@ -37,8 +37,8 @@ In this system, each model has a clear responsibility:
 
 *   **Claude (Opus)**: 👑 **Architect / Coordinator**
     *   Responsible for requirement analysis, task decomposition, prompt optimization, and final decision-making.
-*   **GLM-4.7**: 🔨 **Executor**
-    *   Responsible for concrete code generation, modification, and batch task processing.
+*   **Coder**: 🔨 **Executor**
+    *   Configurable with any backend model supporting Claude Code API. Responsible for concrete code generation, modification, and batch task processing.
 *   **Codex (OpenAI)**: ⚖️ **Reviewer / Senior Code Consultant**
     *   Responsible for independent code quality control, providing objective Code Reviews, and serving as a consultant for architecture design and complex solutions.
 *   **Gemini**: 🧠 **Versatile Expert (Optional)**
@@ -59,19 +59,19 @@ flowchart TB
     end
 
     subgraph MCPLayer ["MCP Server"]
-        MCP{{"⚙️ GLM-CODEX-MCP"}}
+        MCP{{"⚙️ CCG-MCP"}}
     end
 
     subgraph ToolLayer ["Execution Layer"]
-        GLM["🔨 GLM Tool<br><code>claude CLI → GLM-4.7</code><br>sandbox: workspace-write"]
+        Coder["🔨 Coder Tool<br><code>claude CLI → Configurable Backend</code><br>sandbox: workspace-write"]
         Codex["⚖️ Codex Tool<br><code>codex CLI</code><br>sandbox: read-only"]
     end
 
     User --> Claude
     Claude --> Prompt
-    Prompt -->|"glm(PROMPT, cd)"| MCP
-    MCP -->|"Stream JSON"| GLM
-    GLM -->|"SESSION_ID + result"| Review
+    Prompt -->|"coder(PROMPT, cd)"| MCP
+    MCP -->|"Stream JSON"| Coder
+    Coder -->|"SESSION_ID + result"| Review
 
     Review -->|"Needs Review"| MCP
     MCP -->|"Stream JSON"| Codex
@@ -89,7 +89,7 @@ flowchart TB
        ↓
 2. Claude analyzes, decomposes tasks, constructs precise Prompt
        ↓
-3. Calls glm tool → GLM-4.7 executes code generation/modification
+3. Calls coder tool → Backend model executes code generation/modification
        ↓
 4. Claude reviews results, decides if Codex review is needed
        ↓
@@ -110,37 +110,57 @@ Before starting, ensure you have installed the following tools:
 *   **Claude Code**: Version **≥ v2.0.56** ([Installation Guide](https://code.claude.com/docs))
 *   **Codex CLI**: Version **≥ v0.61.0** ([Installation Guide](https://developers.openai.com/codex/quickstart))
 *   **Gemini CLI** (Optional): Required for Gemini tool ([Installation Guide](https://github.com/google-gemini/gemini-cli))
-*   **GLM API Token**: Get from [Zhipu AI](https://open.bigmodel.cn).
+*   **Coder Backend API Token**: User configuration required. GLM-4.7 is recommended as reference. Get token from [Zhipu AI](https://open.bigmodel.cn).
 
 ### 2. Install MCP Server
 
-You only need to install this project `glm-codex-mcp`. It integrates calls to the system `codex` command internally.
-
+**Option 1: Remote Installation (Recommended)**
 ```bash
-claude mcp add glm-codex -s user --transport stdio -- uvx --refresh --from git+https://github.com/FredericMN/GLM-CODEX-MCP.git glm-codex-mcp
+claude mcp add ccg -s user --transport stdio -- uvx --refresh --from git+https://github.com/FredericMN/Coder-Codex-Gemini.git ccg-mcp
 ```
 
-### 3. Configure GLM
+**Option 2: Local Installation (Development/Debug)**
+
+If you've cloned the repository locally:
+```bash
+# Enter project directory
+cd /path/to/Coder-Codex-Gemini
+
+# Install dependencies
+uv sync
+
+# Register MCP server (using local path)
+claude mcp add ccg -s user --transport stdio -- uv run --directory /path/to/Coder-Codex-Gemini ccg-mcp
+```
+
+**Uninstall MCP Server**
+```bash
+claude mcp remove ccg -s user
+```
+
+### 3. Configure Coder
 
 It is recommended to use the **Configuration File** method for management.
+
+> **Configurable Backend**: The Coder tool calls backend models via Claude Code CLI. **User configuration required**. GLM-4.7 is recommended as reference, but you can choose other models supporting Claude Code API (e.g., Minimax, DeepSeek, etc.).
 
 **Create Configuration Directory**:
 ```bash
 # Windows
-mkdir %USERPROFILE%\.glm-codex-mcp
+mkdir %USERPROFILE%\.ccg-mcp
 
 # macOS/Linux
-mkdir -p ~/.glm-codex-mcp
+mkdir -p ~/.ccg-mcp
 ```
 
-**Create Configuration File** `~/.glm-codex-mcp/config.toml`:
+**Create Configuration File** `~/.ccg-mcp/config.toml`:
 ```toml
-[glm]
-api_token = "your-glm-api-token"  # Required
-base_url = "https://open.bigmodel.cn/api/anthropic"
-model = "glm-4.7"
+[coder]
+api_token = "your-api-token"  # Required
+base_url = "https://open.bigmodel.cn/api/anthropic"  # Example: GLM API
+model = "glm-4.7"  # Example: GLM-4.7, can be replaced with other models
 
-[glm.env]
+[coder.env]
 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
 ```
 
@@ -151,13 +171,13 @@ The Skills layer provides workflow guidance to ensure Claude uses MCP tools corr
 ```bash
 # Windows (PowerShell)
 if (!(Test-Path "$env:USERPROFILE\.claude\skills")) { mkdir "$env:USERPROFILE\.claude\skills" }
-xcopy /E /I "skills\glm-codex-workflow" "$env:USERPROFILE\.claude\skills\glm-codex-workflow"
+xcopy /E /I "skills\ccg-workflow" "$env:USERPROFILE\.claude\skills\ccg-workflow"
 # Optional: Install Gemini collaboration Skill
 xcopy /E /I "skills\gemini-collaboration" "$env:USERPROFILE\.claude\skills\gemini-collaboration"
 
 # macOS/Linux
 mkdir -p ~/.claude/skills
-cp -r skills/glm-codex-workflow ~/.claude/skills/
+cp -r skills/ccg-workflow ~/.claude/skills/
 # Optional: Install Gemini collaboration Skill
 cp -r skills/gemini-collaboration ~/.claude/skills/
 ```
@@ -171,11 +191,11 @@ Add mandatory rules to `~/.claude/CLAUDE.md` to ensure Claude follows the collab
 
 ## Mandatory Rules
 
-- **Default Collaboration**: All code/document modification tasks **must** be delegated to GLM for execution, and **must** call Codex for review after milestone completion
+- **Default Collaboration**: All code/document modification tasks **must** be delegated to Coder for execution, and **must** call Codex for review after milestone completion
 - **Skip Requires Confirmation**: If you determine collaboration is unnecessary, **must immediately pause** and report:
-  > "This is a simple [description] task, I judge GLM/Codex is not needed. Do you agree? Waiting for your confirmation."
-- **Violation = Termination**: Skipping GLM execution or Codex review without confirmation = **workflow violation**
-- **Skill First**: Before calling MCP tools, **read the corresponding Skill first** (`glm-codex-workflow`, `gemini-collaboration`) to understand best practices
+  > "This is a simple [description] task, I judge Coder/Codex is not needed. Do you agree? Waiting for your confirmation."
+- **Violation = Termination**: Skipping Coder execution or Codex review without confirmation = **workflow violation**
+- **Skill First**: Before calling MCP tools, **read the corresponding Skill first** (`ccg-workflow`, `gemini-collaboration`) to understand best practices
 - **Session Reuse**: Always save `SESSION_ID` to maintain context
 
 ---
@@ -188,15 +208,15 @@ Add mandatory rules to `~/.claude/CLAUDE.md` to ensure Claude follows the collab
 
 | Role | Position | Purpose | sandbox | Retry |
 |------|----------|---------|---------|-------|
-| **GLM** | Code Executor | Generate/modify code, batch tasks | workspace-write | No retry by default |
+| **Coder** | Code Executor | Generate/modify code, batch tasks | workspace-write | No retry by default |
 | **Codex** | Reviewer/Senior Consultant | Architecture design, quality control, Review | read-only | 1 retry by default |
 | **Gemini** | Senior Consultant (On-demand) | Architecture design, second opinion, frontend/UI | workspace-write (yolo) | 1 retry by default |
 
 ## Core Workflow
 
-1. **GLM Executes**: Delegate all modification tasks to GLM
-2. **Claude Verifies**: Quick check after GLM completes; Claude fixes issues directly
-3. **Codex Reviews**: Call review after milestone development; if issues found, delegate to GLM for fixes, iterate until passed
+1. **Coder Executes**: Delegate all modification tasks to Coder
+2. **Claude Verifies**: Quick check after Coder completes; Claude fixes issues directly
+3. **Codex Reviews**: Call review after milestone development; if issues found, delegate to Coder for fixes, iterate until passed
 
 ## Pre-coding Preparation (Complex Tasks)
 
@@ -222,7 +242,7 @@ claude mcp list
 
 ✅ Seeing the following output means installation is successful:
 ```text
-glm-codex: ... - ✓ Connected
+ccg: ... - ✓ Connected
 ```
 
 ### 7. (Optional) Permission Configuration
@@ -233,9 +253,9 @@ For a smoother experience, add automatic authorization in `~/.claude/settings.js
 {
   "permissions": {
     "allow": [
-      "mcp__glm-codex__glm",
-      "mcp__glm-codex__codex",
-      "mcp__glm-codex__gemini"
+      "mcp__ccg__coder",
+      "mcp__ccg__codex",
+      "mcp__ccg__gemini"
     ]
   }
 }
@@ -243,9 +263,11 @@ For a smoother experience, add automatic authorization in `~/.claude/settings.js
 
 ## 🛠️ Tools Details
 
-### `glm` - Code Executor
+### `coder` - Code Executor
 
-Calls the GLM-4.7 model to execute specific code generation or modification tasks.
+Calls configurable backend models to execute specific code generation or modification tasks.
+
+> **Configurable Backend**: The Coder tool calls backend models via Claude Code CLI. **User configuration required**. GLM-4.7 is recommended as reference, but you can choose other models supporting Claude Code API (e.g., Minimax, DeepSeek, etc.).
 
 | Parameter | Type | Required | Default | Description |
 | :--- | :--- | :---: | :--- | :--- |
@@ -257,7 +279,7 @@ Calls the GLM-4.7 model to execute specific code generation or modification task
 | `return_metrics` | bool | - | `false` | Whether to include metrics in return value |
 | `timeout` | int | - | `300` | Idle timeout (seconds), triggers when no output for this duration |
 | `max_duration` | int | - | `1800` | Max duration limit (seconds), default 30 min, 0 for unlimited |
-| `max_retries` | int | - | `0` | Max retry count (GLM defaults to no retry) |
+| `max_retries` | int | - | `0` | Max retry count (Coder defaults to no retry) |
 | `log_metrics` | bool | - | `false` | Whether to output metrics to stderr |
 
 ### `codex` - Code Reviewer
@@ -329,7 +351,7 @@ This project uses a **dual timeout protection** mechanism:
 // Success (default behavior, return_metrics=false)
 {
   "success": true,
-  "tool": "glm",
+  "tool": "coder",
   "SESSION_ID": "uuid-string",
   "result": "Response content"
 }
@@ -337,14 +359,14 @@ This project uses a **dual timeout protection** mechanism:
 // Success (with metrics enabled, return_metrics=true)
 {
   "success": true,
-  "tool": "glm",
+  "tool": "coder",
   "SESSION_ID": "uuid-string",
   "result": "Response content",
   "metrics": {
     "ts_start": "2026-01-02T10:00:00.000Z",
     "ts_end": "2026-01-02T10:00:05.123Z",
     "duration_ms": 5123,
-    "tool": "glm",
+    "tool": "coder",
     "sandbox": "workspace-write",
     "success": true,
     "retries": 0,
@@ -361,7 +383,7 @@ This project uses a **dual timeout protection** mechanism:
 // Failure (structured error, default behavior)
 {
   "success": false,
-  "tool": "glm",
+  "tool": "coder",
   "error": "Error summary",
   "error_kind": "idle_timeout | timeout | upstream_error | ...",
   "error_detail": {
@@ -377,7 +399,7 @@ This project uses a **dual timeout protection** mechanism:
 // Failure (with metrics enabled, return_metrics=true)
 {
   "success": false,
-  "tool": "glm",
+  "tool": "coder",
   "error": "Error summary",
   "error_kind": "idle_timeout | timeout | upstream_error | ...",
   "error_detail": {
@@ -392,7 +414,7 @@ This project uses a **dual timeout protection** mechanism:
     "ts_start": "2026-01-02T10:00:00.000Z",
     "ts_end": "2026-01-02T10:00:05.123Z",
     "duration_ms": 5123,
-    "tool": "glm",
+    "tool": "coder",
     "sandbox": "workspace-write",
     "success": false,
     "retries": 0,
@@ -429,8 +451,8 @@ Issues and Pull Requests are welcome!
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/FredericMN/GLM-CODEX-MCP.git
-cd GLM-CODEX-MCP
+git clone https://github.com/FredericMN/Coder-Codex-Gemini.git
+cd Coder-Codex-Gemini
 
 # 2. Install dependencies (using uv)
 uv sync
@@ -439,14 +461,14 @@ uv sync
 uv run pytest
 
 # 4. Local debug run
-uv run glm-codex-mcp
+uv run ccg-mcp
 ```
 
 ## 📚 References
 
 - **CodexMCP**: [GitHub](https://github.com/GuDaStudio/codexmcp) - Core reference implementation
 - **FastMCP**: [GitHub](https://github.com/jlowin/fastmcp) - High-efficiency MCP framework
-- **GLM API**: [Zhipu AI](https://open.bigmodel.cn) - Powerful domestic LLM
+- **GLM API**: [Zhipu AI](https://open.bigmodel.cn) - Powerful domestic LLM (recommended as Coder backend)
 - **Claude Code**: [Documentation](https://docs.anthropic.com/en/docs/claude-code)
 
 ## 📄 License

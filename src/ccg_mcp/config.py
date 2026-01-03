@@ -1,7 +1,7 @@
 """配置加载模块
 
 优先级：配置文件 > 环境变量
-配置文件路径：~/.glm-codex-mcp/config.toml
+配置文件路径：~/.ccg-mcp/config.toml
 """
 
 from __future__ import annotations
@@ -19,14 +19,14 @@ class ConfigError(Exception):
 
 def get_config_path() -> Path:
     """获取配置文件路径"""
-    return Path.home() / ".glm-codex-mcp" / "config.toml"
+    return Path.home() / ".ccg-mcp" / "config.toml"
 
 
 def load_config() -> dict[str, Any]:
     """加载配置，优先级：配置文件 > 环境变量
 
     Returns:
-        配置字典，包含 glm 和 codex 配置
+        配置字典，包含 coder 和 codex 配置
 
     Raises:
         ConfigError: 未找到有效配置时抛出
@@ -42,41 +42,43 @@ def load_config() -> dict[str, Any]:
             raise ConfigError(f"配置文件格式错误：{e}")
 
     # 兜底：从环境变量读取
-    if os.environ.get("GLM_API_TOKEN"):
+    if os.environ.get("CODER_API_TOKEN"):
         return {
-            "glm": {
-                "api_token": os.environ["GLM_API_TOKEN"],
+            "coder": {
+                "api_token": os.environ["CODER_API_TOKEN"],
                 "base_url": os.environ.get(
-                    "GLM_BASE_URL",
+                    "CODER_BASE_URL",
                     "https://open.bigmodel.cn/api/anthropic"
                 ),
-                "model": os.environ.get("GLM_MODEL", "glm-4.7"),
+                "model": os.environ.get("CODER_MODEL", "glm-4.7"),
             }
         }
 
     # 生成配置引导信息
-    config_example = '''# ~/.glm-codex-mcp/config.toml
+    config_example = '''# ~/.ccg-mcp/config.toml
 
-[glm]
-api_token = "your-glm-api-token"
-base_url = "https://open.bigmodel.cn/api/anthropic"
-model = "glm-4.7"
+[coder]
+api_token = "your-api-token"  # 必填
+base_url = "https://open.bigmodel.cn/api/anthropic"  # 示例：GLM API
+model = "glm-4.7"  # 示例：GLM-4.7，可替换为其他模型
 
 # 可选：额外环境变量
-[glm.env]
+[coder.env]
 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1"
 '''
 
     raise ConfigError(
-        f"未找到 GLM 配置！\n\n"
+        f"未找到 Coder 配置！\n\n"
+        f"Coder 工具需要用户自行配置后端模型。\n"
+        f"推荐使用 GLM-4.7 作为参考案例，也可选用其他支持 Claude Code API 的模型（如 Minimax、DeepSeek 等）。\n\n"
         f"请创建配置文件：{config_path}\n\n"
         f"配置文件示例：\n{config_example}\n"
-        f"或设置环境变量 GLM_API_TOKEN"
+        f"或设置环境变量 CODER_API_TOKEN"
     )
 
 
-def build_glm_env(config: dict[str, Any]) -> dict[str, str]:
-    """构建 GLM 调用所需的环境变量
+def build_coder_env(config: dict[str, Any]) -> dict[str, str]:
+    """构建 Coder 调用所需的环境变量
 
     Args:
         config: 配置字典
@@ -84,26 +86,26 @@ def build_glm_env(config: dict[str, Any]) -> dict[str, str]:
     Returns:
         包含所有环境变量的字典
     """
-    glm_config = config.get("glm", {})
-    model = glm_config.get("model", "glm-4.7")
+    coder_config = config.get("coder", {})
+    model = coder_config.get("model", "glm-4.7")
 
     env = os.environ.copy()
 
-    # GLM API 认证
-    env["ANTHROPIC_AUTH_TOKEN"] = glm_config.get("api_token", "")
-    env["ANTHROPIC_BASE_URL"] = glm_config.get(
+    # API 认证
+    env["ANTHROPIC_AUTH_TOKEN"] = coder_config.get("api_token", "")
+    env["ANTHROPIC_BASE_URL"] = coder_config.get(
         "base_url",
         "https://open.bigmodel.cn/api/anthropic"
     )
 
-    # 所有模型别名都映射到 GLM
+    # 所有模型别名都映射到配置的模型
     env["ANTHROPIC_DEFAULT_OPUS_MODEL"] = model
     env["ANTHROPIC_DEFAULT_SONNET_MODEL"] = model
     env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] = model
     env["CLAUDE_CODE_SUBAGENT_MODEL"] = model
 
     # 用户自定义的额外环境变量
-    for key, value in glm_config.get("env", {}).items():
+    for key, value in coder_config.get("env", {}).items():
         env[key] = str(value)
 
     return env
@@ -118,13 +120,13 @@ def validate_config(config: dict[str, Any]) -> None:
     Raises:
         ConfigError: 配置无效时抛出
     """
-    glm_config = config.get("glm", {})
+    coder_config = config.get("coder", {})
 
-    if not glm_config.get("api_token"):
-        raise ConfigError("GLM 配置缺少 api_token")
+    if not coder_config.get("api_token"):
+        raise ConfigError("Coder 配置缺少 api_token")
 
-    if not glm_config.get("base_url"):
-        raise ConfigError("GLM 配置缺少 base_url")
+    if not coder_config.get("base_url"):
+        raise ConfigError("Coder 配置缺少 base_url")
 
 
 # 全局配置缓存
