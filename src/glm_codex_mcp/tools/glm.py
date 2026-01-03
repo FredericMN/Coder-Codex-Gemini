@@ -13,9 +13,10 @@ import subprocess
 import sys
 import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any, Dict, Generator, Literal, Optional
+from typing import Annotated, Any, Dict, Generator, Iterator, Literal, Optional
 
 from pydantic import Field
 
@@ -320,6 +321,202 @@ def run_glm_command(
     return (exit_code, raw_output_lines)
 
 
+@contextmanager
+def safe_glm_command(
+    cmd: list[str],
+    env: dict[str, str],
+    cwd: Path | None = None,
+    timeout: int = 300,
+    max_duration: int = 1800,
+    prompt: str = "",
+) -> Iterator[Generator[str, None, tuple[Optional[int], int]]]:
+    """安全执行 GLM 命令的上下文管理器
+
+    确保在任何情况下（包括异常）都能正确清理子进程。
+
+    用法:
+        with safe_glm_command(cmd, env, cwd, timeout, max_duration, prompt) as gen:
+            for line in gen:
+                process_line(line)
+    """
+    # 查找 claude CLI 路径
+    claude_path = shutil.which('claude')
+    if not claude_path:
+        raise CommandNotFoundError(
+            "未找到 claude CLI。请确保已安装 Claude Code CLI 并添加到 PATH。\n"
+            "安装指南：https://docs.anthropic.com/en/docs/claude-code"
+        )
+    popen_cmd = cmd.copy()
+    popen_cmd[0] = claude_path
+
+    process = subprocess.Popen(
+        popen_cmd,
+        shell=False,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        universal_newlines=True,
+        encoding='utf-8',
+        env=env,
+        cwd=cwd,
+    )
+
+    thread: Optional[threading.Thread] = None
+
+    def cleanup() -> None:
+        """清理子进程和线程（best-effort，不抛异常）"""
+        nonlocal thread
+        # 1. 先关闭 stdout 以解除读取线程的阻塞
+        try:
+            if process.stdout and not process.stdout.closed:
+                process.stdout.close()
+        except (OSError, IOError):
+            pass
+        # 2. 终止进程
+        try:
+            if process.poll() is None:
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    try:
+                        process.wait(timeout=2)  # kill 后也设超时
+                    except subprocess.TimeoutExpired:
+                        pass  # 极端情况：进程无法终止，放弃
+        except (ProcessLookupError, OSError):
+            pass  # 进程已退出，忽略
+        # 3. 等待线程结束
+        if thread is not None and thread.is_alive():
+            thread.join(timeout=5)
+
+    try:
+        # 通过 stdin 传递对话 prompt，然后关闭 stdin
+        if process.stdin:
+            try:
+                if prompt:
+                    process.stdin.write(prompt)
+            except (BrokenPipeError, OSError):
+                pass
+            finally:
+                try:
+                    process.stdin.close()
+                except (BrokenPipeError, OSError):
+                    pass
+
+        output_queue: queue.Queue[str | None] = queue.Queue()
+        raw_output_lines_holder = [0]  # 使用列表以便在嵌套函数中修改
+        GRACEFUL_SHUTDOWN_DELAY = 0.3
+
+        def is_session_completed(line: str) -> bool:
+            """检查是否会话完成"""
+            try:
+                data = json.loads(line)
+                return data.get("type") in ("result", "error")
+            except (json.JSONDecodeError, AttributeError, TypeError):
+                return False
+
+        def read_output() -> None:
+            """在单独线程中读取进程输出"""
+            try:
+                if process.stdout:
+                    for line in iter(process.stdout.readline, ""):
+                        stripped = line.strip()
+                        output_queue.put(stripped)
+                        if stripped:
+                            raw_output_lines_holder[0] += 1
+                        if is_session_completed(stripped):
+                            time.sleep(GRACEFUL_SHUTDOWN_DELAY)
+                            break
+                    process.stdout.close()
+            except (OSError, IOError, ValueError):
+                pass  # stdout 被关闭，正常退出
+            finally:
+                output_queue.put(None)  # 确保投递哨兵
+
+        thread = threading.Thread(target=read_output, daemon=True)
+        thread.start()
+
+        def generator() -> Generator[str, None, tuple[Optional[int], int]]:
+            """生成器：读取输出并处理超时"""
+            nonlocal thread
+            start_time = time.time()
+            last_activity_time = time.time()
+            timeout_error: CommandTimeoutError | None = None
+
+            while True:
+                now = time.time()
+
+                if max_duration > 0 and (now - start_time) >= max_duration:
+                    timeout_error = CommandTimeoutError(
+                        f"glm 执行超时（总时长超过 {max_duration}s），进程已终止。",
+                        is_idle=False
+                    )
+                    break
+
+                if (now - last_activity_time) >= timeout:
+                    timeout_error = CommandTimeoutError(
+                        f"glm 空闲超时（{timeout}s 无输出），进程已终止。",
+                        is_idle=True
+                    )
+                    break
+
+                try:
+                    line = output_queue.get(timeout=0.5)
+                    if line is None:
+                        break
+                    last_activity_time = time.time()
+                    if line:
+                        yield line
+                except queue.Empty:
+                    if process.poll() is not None and not thread.is_alive():
+                        break
+
+            if timeout_error is not None:
+                cleanup()
+                raise timeout_error
+
+            exit_code: Optional[int] = None
+            try:
+                exit_code = process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+                timeout_error = CommandTimeoutError(
+                    f"glm 进程等待超时，进程已终止。",
+                    is_idle=False
+                )
+            finally:
+                if thread is not None:
+                    thread.join(timeout=5)
+
+            if timeout_error is not None:
+                raise timeout_error
+
+            while not output_queue.empty():
+                try:
+                    line = output_queue.get_nowait()
+                    if line is not None:
+                        yield line
+                except queue.Empty:
+                    break
+
+            return (exit_code, raw_output_lines_holder[0])
+
+        yield generator()
+
+    except Exception:
+        cleanup()
+        raise
+    finally:
+        # 确保在退出上下文时清理
+        cleanup()
+
+
 def _build_error_detail(
     message: str,
     exit_code: Optional[int] = None,
@@ -450,47 +647,46 @@ async def glm_tool(
         last_lines: list[str] = []
 
         try:
-            gen = run_glm_command(cmd, env, cd, timeout, max_duration, prompt=normalized_prompt)
-            try:
-                while True:
-                    line = next(gen)
-                    last_lines.append(line)
-                    if len(last_lines) > 20:
-                        last_lines.pop(0)
+            with safe_glm_command(cmd, env, cd, timeout, max_duration, prompt=normalized_prompt) as gen:
+                try:
+                    for line in gen:
+                        last_lines.append(line)
+                        if len(last_lines) > 20:
+                            last_lines.pop(0)
 
-                    try:
-                        line_dict = json.loads(line.strip())
-                        all_messages.append(line_dict)
+                        try:
+                            line_dict = json.loads(line.strip())
+                            all_messages.append(line_dict)
 
-                        msg_type = line_dict.get("type", "")
+                            msg_type = line_dict.get("type", "")
 
-                        if msg_type == "result":
-                            result_content = line_dict.get("result", "")
-                            session_id = line_dict.get("session_id")
-                            if line_dict.get("is_error"):
+                            if msg_type == "result":
+                                result_content = line_dict.get("result", "")
+                                session_id = line_dict.get("session_id")
+                                if line_dict.get("is_error"):
+                                    had_error = True
+                                    err_message = result_content
+                                    error_kind = ErrorKind.UPSTREAM_ERROR
+
+                            elif msg_type == "error":
                                 had_error = True
-                                err_message = result_content
+                                error_data = line_dict.get("error", {})
+                                err_message = error_data.get("message", str(line_dict))
                                 error_kind = ErrorKind.UPSTREAM_ERROR
 
-                        elif msg_type == "error":
+                        except json.JSONDecodeError:
+                            json_decode_errors += 1
+                            continue
+
+                        except Exception as error:
+                            err_message += f"\n\n[unexpected error] {error}. Line: {line!r}"
                             had_error = True
-                            error_data = line_dict.get("error", {})
-                            err_message = error_data.get("message", str(line_dict))
-                            error_kind = ErrorKind.UPSTREAM_ERROR
-
-                    except json.JSONDecodeError:
-                        json_decode_errors += 1
-                        continue
-
-                    except Exception as error:
-                        err_message += f"\n\n[unexpected error] {error}. Line: {line!r}"
-                        had_error = True
-                        error_kind = ErrorKind.UNEXPECTED_EXCEPTION
-                        break
-            except StopIteration as e:
-                # 正确捕获生成器返回值
-                if isinstance(e.value, tuple) and len(e.value) == 2:
-                    exit_code, raw_output_lines = e.value
+                            error_kind = ErrorKind.UNEXPECTED_EXCEPTION
+                            break
+                except StopIteration as e:
+                    # 正确捕获生成器返回值
+                    if isinstance(e.value, tuple) and len(e.value) == 2:
+                        exit_code, raw_output_lines = e.value
 
         except CommandNotFoundError as e:
             metrics.finish(

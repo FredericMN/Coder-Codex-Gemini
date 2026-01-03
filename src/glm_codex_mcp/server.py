@@ -1,6 +1,6 @@
 """GLM-CODEX-MCP 服务器主体
 
-提供 glm 和 codex 两个 MCP 工具，实现三方协作。
+提供 glm、codex 和 gemini 三个 MCP 工具，实现多方协作。
 """
 
 from __future__ import annotations
@@ -13,6 +13,7 @@ from pydantic import Field
 
 from glm_codex_mcp.tools.glm import glm_tool
 from glm_codex_mcp.tools.codex import codex_tool
+from glm_codex_mcp.tools.gemini import gemini_tool
 
 # 创建 MCP 服务器实例
 mcp = FastMCP("GLM-CODEX-MCP Server")
@@ -162,6 +163,78 @@ async def codex(
         model=model,
         yolo=yolo,
         profile=profile,
+        timeout=timeout,
+        max_duration=max_duration,
+        max_retries=max_retries,
+        log_metrics=log_metrics,
+    )
+
+
+@mcp.tool(
+    name="gemini",
+    description="""
+    调用 Gemini CLI 进行代码执行、技术咨询或代码审核。
+
+    **角色定位**：多面手（与 Claude、Codex 同等级别的顶级 AI 专家）
+    - 🧠 高阶顾问：架构设计、技术选型、复杂方案讨论
+    - ⚖️ 独立审核：代码 Review、方案评审、质量把关
+    - 🔨 代码执行：原型开发、功能实现（尤其擅长前端/UI）
+
+    **使用场景**：
+    - 用户明确要求使用 Gemini
+    - 需要第二意见或独立视角
+    - 架构设计和技术讨论
+    - 前端/UI 原型开发
+
+    **注意**：Gemini 权限灵活，默认 yolo=true，由 Claude 按场景控制
+    **重试策略**：默认允许 1 次重试
+
+    **Prompt 模板**：
+    ```
+    请提供专业意见/执行以下任务：
+    **任务类型**：[咨询 / 审核 / 执行]
+    **背景信息**：[项目上下文]
+    **具体问题/任务**：
+    1. [问题/任务1]
+    2. [问题/任务2]
+    **期望输出**：
+    - [输出格式/内容要求]
+    ```
+    """,
+)
+async def gemini(
+    PROMPT: Annotated[str, "任务指令，需提供充分背景信息"],
+    cd: Annotated[Path, "工作目录"],
+    sandbox: Annotated[
+        Literal["read-only", "workspace-write", "danger-full-access"],
+        Field(description="沙箱策略，默认允许写工作区"),
+    ] = "workspace-write",
+    yolo: Annotated[
+        bool,
+        Field(description="无需审批运行所有命令（跳过沙箱），默认 true"),
+    ] = True,
+    SESSION_ID: Annotated[str, "会话 ID，用于多轮对话"] = "",
+    return_all_messages: Annotated[bool, "是否返回完整消息"] = False,
+    return_metrics: Annotated[bool, "是否在返回值中包含指标数据"] = False,
+    model: Annotated[
+        str,
+        Field(description="指定模型版本，默认使用 gemini-3-pro-preview"),
+    ] = "",
+    timeout: Annotated[int, "空闲超时（秒），无输出超过此时间触发超时，默认 300 秒"] = 300,
+    max_duration: Annotated[int, "总时长硬上限（秒），默认 1800 秒（30 分钟），0 表示无限制"] = 1800,
+    max_retries: Annotated[int, "最大重试次数，默认 1"] = 1,
+    log_metrics: Annotated[bool, "是否将指标输出到 stderr"] = False,
+) -> Dict[str, Any]:
+    """执行 Gemini 任务"""
+    return await gemini_tool(
+        PROMPT=PROMPT,
+        cd=cd,
+        sandbox=sandbox,
+        yolo=yolo,
+        SESSION_ID=SESSION_ID,
+        return_all_messages=return_all_messages,
+        return_metrics=return_metrics,
+        model=model,
         timeout=timeout,
         max_duration=max_duration,
         max_retries=max_retries,

@@ -9,9 +9,9 @@
 
 [English Docs](README_EN.md)
 
-**Claude (Opus) + GLM + Codex 三方协作 MCP 服务器**
+**Claude (Opus) + GLM + Codex + Gemini 多方协作 MCP 服务器**
 
-让 **Claude (Opus)** 作为架构师调度 **GLM** 执行代码任务、**Codex** 审核代码质量，<br>形成**自动化的三方协作闭环**。
+让 **Claude (Opus)** 作为架构师调度 **GLM** 执行代码任务、**Codex** 审核代码质量，**Gemini** 提供专家咨询，<br>形成**自动化的多方协作闭环**。
 
 [快速开始](#-快速开始) • [核心特性](#-核心特性) • [架构说明](#-架构说明) • [工具详解](#️-工具详解)
 
@@ -21,12 +21,12 @@
 
 ## 🌟 核心特性
 
-GLM-CODEX-MCP 通过连接三大模型，构建了一个高效、低成本且高质量的代码生成与审核流水线：
+GLM-CODEX-MCP 通过连接多个顶级模型，构建了一个高效、低成本且高质量的代码生成与审核流水线：
 
 | 维度 | 价值说明 |
 | :--- | :--- |
 | **🧠 成本优化** | **Opus** 负责高智商思考与调度（贵但强），**GLM** 负责繁重的代码执行（量大管饱）。 |
-| **🧩 能力互补** | **Opus** 补足 **GLM** 的创造力短板，**Codex** 提供独立的第三方审核视角。 |
+| **🧩 能力互补** | **Opus** 补足 **GLM** 的创造力短板，**Codex** 提供独立的第三方审核视角，**Gemini** 提供多元化专家意见。 |
 | **🛡️ 质量保障** | 引入双重审核机制：**Claude 初审** + **Codex 终审**，确保代码健壮性。 |
 | **🔄 全自动闭环** | 支持 `拆解` → `执行` → `审核` → `重试` 的全自动流程，最大程度减少人工干预。 |
 | **🔧 灵活架构** | **Skills + MCP** 混合架构：MCP 提供工具能力，Skills 提供工作流指导，按需加载节约 Token。 |
@@ -41,6 +41,8 @@ GLM-CODEX-MCP 通过连接三大模型，构建了一个高效、低成本且高
     *   负责具体的代码生成、修改、批量任务处理。
 *   **Codex (OpenAI)**: ⚖️ **审核官 / 高级代码顾问**
     *   负责独立的代码质量把关，提供客观的 Code Review，也可作为架构设计和复杂方案的咨询顾问。
+*   **Gemini**: 🧠 **多面手专家（可选）**
+    *   与 Claude 同等级别的顶级 AI 专家，按需调用。可担任高阶顾问、独立审核者或代码执行者。
 
 ### 协作流程图
 
@@ -107,6 +109,7 @@ flowchart TB
     *   macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 *   **Claude Code**: 版本 **≥ v2.0.56** ([安装指南](https://code.claude.com/docs))
 *   **Codex CLI**: 版本 **≥ v0.61.0** ([安装指南](https://developers.openai.com/codex/quickstart))
+*   **Gemini CLI**（可选）: 如需使用 Gemini 工具 ([安装指南](https://github.com/google-gemini/gemini-cli))
 *   **GLM API Token**: 从 [智谱 AI](https://open.bigmodel.cn) 获取。
 
 ### 2. 安装 MCP 服务器
@@ -149,10 +152,14 @@ Skills 层提供工作流指导，确保 Claude 正确使用 MCP 工具。
 # Windows (PowerShell)
 if (!(Test-Path "$env:USERPROFILE\.claude\skills")) { mkdir "$env:USERPROFILE\.claude\skills" }
 xcopy /E /I "skills\glm-codex-workflow" "$env:USERPROFILE\.claude\skills\glm-codex-workflow"
+# 可选：安装 Gemini 协作 Skill
+xcopy /E /I "skills\gemini-collaboration" "$env:USERPROFILE\.claude\skills\gemini-collaboration"
 
 # macOS/Linux
 mkdir -p ~/.claude/skills
 cp -r skills/glm-codex-workflow ~/.claude/skills/
+# 可选：安装 Gemini 协作 Skill
+cp -r skills/gemini-collaboration ~/.claude/skills/
 ```
 
 ### 5. 配置全局 Prompt（推荐）
@@ -160,15 +167,7 @@ cp -r skills/glm-codex-workflow ~/.claude/skills/
 在 `~/.claude/CLAUDE.md` 中添加强制规则，确保 Claude 遵守协作流程：
 
 ```markdown
-# GLM-CODEX 协作
-
-GLM 是代码执行者，Codex 是代码审核者。**所有决策权归 Claude 所有**。
-
-## 核心流程
-
-1. **GLM 执行**：所有改动任务委托 GLM 处理
-2. **Claude 验收**：GLM 完成后快速检查，有误自行修复
-3. **Codex 审核**：阶段性开发完成后调用 review，有误委托 GLM 修复，GLM 完成后再次进入 **Claude 验收**，持续迭代直至完全通过。
+# 全局协议
 
 ## 强制规则
 
@@ -176,19 +175,39 @@ GLM 是代码执行者，Codex 是代码审核者。**所有决策权归 Claude 
 - **跳过需确认**：若判断无需协作，**必须立即暂停**并报告：
   > "这是一个简单的[描述]任务，我判断无需调用 GLM/Codex。是否同意？等待您的确认。"
 - **违规即终止**：未经确认跳过 GLM 执行或 Codex 审核 = **流程违规**
+- **Skill 优先**：调用 MCP 工具前，**优先阅读对应 Skill**（`glm-codex-workflow`、`gemini-collaboration`）以了解最佳实践
+- **会话复用**：始终保存 `SESSION_ID` 保持上下文
 
-## 快速参考
+---
 
-| 工具 | 用途 | sandbox | 重试 |
-|------|------|---------|------|
-| GLM | 执行改动 | workspace-write | 默认不重试 |
-| Codex | 代码审核 | read-only | 默认 1 次 |
+# AI 协作体系
 
-**会话复用**：保存 `SESSION_ID` 保持上下文
+**Claude 是最终决策者**，所有 AI 意见仅供参考，需批判性思考后做出最优决策。
 
-## 独立决策
+## 角色分工
 
-GLM/Codex 意见仅供参考。Claude 是最终决策者，需批判性思考。
+| 角色 | 定位 | 用途 | sandbox | 重试 |
+|------|------|------|---------|------|
+| **GLM** | 代码执行者 | 生成/修改代码、批量任务 | workspace-write | 默认不重试 |
+| **Codex** | 代码审核者/高阶顾问 | 架构设计、质量把关、Review | read-only | 默认 1 次 |
+| **Gemini** | 高阶顾问（按需） | 架构设计、第二意见、前端/UI | workspace-write (yolo) | 默认 1 次 |
+
+## 核心流程
+
+1. **GLM 执行**：所有改动任务委托 GLM 处理
+2. **Claude 验收**：GLM 完成后快速检查，有误则 Claude 自行修复
+3. **Codex 审核**：阶段性开发完成后调用 review，有误委托 GLM 修复，持续迭代直至通过
+
+## 编码前准备（复杂任务）
+
+1. 搜索受影响的符号/入口点
+2. 列出需要修改的文件清单
+3. 复杂问题可先与 Codex 或 Gemini 沟通方案
+
+## Gemini 触发场景
+
+- **用户明确要求**：用户指定使用 Gemini
+- **Claude 自主调用**：设计前端/UI、需要第二意见或独立视角时
 ```
 
 > **说明**：纯 MCP 也能工作，但推荐 Skills + 全局 Prompt 配置以获得最佳体验。
@@ -215,7 +234,8 @@ glm-codex: ... - ✓ Connected
   "permissions": {
     "allow": [
       "mcp__glm-codex__glm",
-      "mcp__glm-codex__codex"
+      "mcp__glm-codex__codex",
+      "mcp__glm-codex__gemini"
     ]
   }
 }
@@ -261,6 +281,34 @@ glm-codex: ... - ✓ Connected
 | `log_metrics` | bool | - | `false` | 是否将指标输出到 stderr |
 | `yolo` | bool | - | `false` | 无需审批运行所有命令（跳过沙箱） |
 | `profile` | string | - | `""` | 从 ~/.codex/config.toml 加载的配置文件名称 |
+
+### `gemini` - 多面手专家（可选）
+
+调用 Gemini CLI 进行代码执行、技术咨询或代码审核。与 Claude 同等级别的顶级 AI 专家。
+
+| 参数 | 类型 | 必填 | 默认值 | 说明 |
+| :--- | :--- | :---: | :--- | :--- |
+| `PROMPT` | string | ✅ | - | 任务指令，需提供充分背景信息 |
+| `cd` | Path | ✅ | - | 工作目录 |
+| `sandbox` | string | - | `workspace-write` | 沙箱策略，默认允许写入（灵活控制） |
+| `yolo` | bool | - | `true` | 跳过审批，默认开启 |
+| `SESSION_ID` | string | - | `""` | 会话 ID，用于多轮对话 |
+| `model` | string | - | `gemini-3-pro-preview` | 指定模型版本 |
+| `return_all_messages` | bool | - | `false` | 是否返回完整的对话历史 |
+| `return_metrics` | bool | - | `false` | 是否在返回值中包含耗时等指标 |
+| `timeout` | int | - | `300` | 空闲超时（秒） |
+| `max_duration` | int | - | `1800` | 总时长硬上限（秒） |
+| `max_retries` | int | - | `1` | 最大重试次数 |
+| `log_metrics` | bool | - | `false` | 是否将指标输出到 stderr |
+
+**角色定位**：
+- 🧠 **高阶顾问**：架构设计、技术选型、复杂方案讨论
+- ⚖️ **独立审核**：代码 Review、方案评审、质量把关
+- 🔨 **代码执行**：原型开发、功能实现（尤其擅长前端/UI）
+
+**触发场景**：
+- 用户明确要求使用 Gemini
+- Claude 需要第二意见或独立视角
 
 ### 超时机制
 

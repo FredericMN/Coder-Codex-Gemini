@@ -7,11 +7,11 @@
 ![MCP](https://img.shields.io/badge/MCP-1.20.0+-green.svg)
 ![Status](https://img.shields.io/badge/status-beta-orange.svg)
 
-**Claude (Opus) + GLM + Codex Collaborative MCP Server**
+**Claude (Opus) + GLM + Codex + Gemini Collaborative MCP Server**
 
 [中文文档](README.md)
 
-Empower **Claude (Opus)** as the architect to orchestrate **GLM** for code execution tasks and **Codex** for code quality review,<br>forming an **automated tripartite collaboration loop**.
+Empower **Claude (Opus)** as the architect to orchestrate **GLM** for code execution, **Codex** for code quality review, and **Gemini** for expert consultation,<br>forming an **automated multi-party collaboration loop**.
 
 [Quick Start](#-quick-start) • [Core Features](#-core-features) • [Architecture](#-architecture) • [Tools Details](#️-tools-details)
 
@@ -21,12 +21,12 @@ Empower **Claude (Opus)** as the architect to orchestrate **GLM** for code execu
 
 ## 🌟 Core Features
 
-GLM-CODEX-MCP connects three major models to build an efficient, cost-effective, and high-quality pipeline for code generation and review:
+GLM-CODEX-MCP connects multiple top-tier models to build an efficient, cost-effective, and high-quality pipeline for code generation and review:
 
 | Dimension | Value Proposition |
 | :--- | :--- |
 | **🧠 Cost Optimization** | **Opus** handles high-intelligence reasoning & orchestration (expensive but powerful), while **GLM** handles heavy lifting of code execution (cost-effective volume). |
-| **🧩 Complementary Capabilities** | **Opus** compensates for **GLM**'s creativity gaps, and **Codex** provides an independent third-party review perspective. |
+| **🧩 Complementary Capabilities** | **Opus** compensates for **GLM**'s creativity gaps, **Codex** provides an independent third-party review perspective, and **Gemini** offers diverse expert opinions. |
 | **🛡️ Quality Assurance** | Introduces a dual-review mechanism: **Claude Initial Review** + **Codex Final Review** to ensure code robustness. |
 | **🔄 Fully Automated Loop** | Supports a fully automated flow of `Decompose` → `Execute` → `Review` → `Retry`, minimizing human intervention. |
 | **🔧 Flexible Architecture** | **Skills + MCP** hybrid architecture: MCP provides tool capabilities, Skills provides workflow guidance, on-demand loading saves tokens. |
@@ -41,6 +41,8 @@ In this system, each model has a clear responsibility:
     *   Responsible for concrete code generation, modification, and batch task processing.
 *   **Codex (OpenAI)**: ⚖️ **Reviewer / Senior Code Consultant**
     *   Responsible for independent code quality control, providing objective Code Reviews, and serving as a consultant for architecture design and complex solutions.
+*   **Gemini**: 🧠 **Versatile Expert (Optional)**
+    *   A top-tier AI expert on par with Claude. Can serve as senior consultant, independent reviewer, or code executor. Invoked on-demand.
 
 ### Collaboration Workflow
 
@@ -107,6 +109,7 @@ Before starting, ensure you have installed the following tools:
     *   macOS/Linux: `curl -LsSf https://astral.sh/uv/install.sh | sh`
 *   **Claude Code**: Version **≥ v2.0.56** ([Installation Guide](https://code.claude.com/docs))
 *   **Codex CLI**: Version **≥ v0.61.0** ([Installation Guide](https://developers.openai.com/codex/quickstart))
+*   **Gemini CLI** (Optional): Required for Gemini tool ([Installation Guide](https://github.com/google-gemini/gemini-cli))
 *   **GLM API Token**: Get from [Zhipu AI](https://open.bigmodel.cn).
 
 ### 2. Install MCP Server
@@ -149,10 +152,14 @@ The Skills layer provides workflow guidance to ensure Claude uses MCP tools corr
 # Windows (PowerShell)
 if (!(Test-Path "$env:USERPROFILE\.claude\skills")) { mkdir "$env:USERPROFILE\.claude\skills" }
 xcopy /E /I "skills\glm-codex-workflow" "$env:USERPROFILE\.claude\skills\glm-codex-workflow"
+# Optional: Install Gemini collaboration Skill
+xcopy /E /I "skills\gemini-collaboration" "$env:USERPROFILE\.claude\skills\gemini-collaboration"
 
 # macOS/Linux
 mkdir -p ~/.claude/skills
 cp -r skills/glm-codex-workflow ~/.claude/skills/
+# Optional: Install Gemini collaboration Skill
+cp -r skills/gemini-collaboration ~/.claude/skills/
 ```
 
 ### 5. Configure Global Prompt (Recommended)
@@ -160,15 +167,7 @@ cp -r skills/glm-codex-workflow ~/.claude/skills/
 Add mandatory rules to `~/.claude/CLAUDE.md` to ensure Claude follows the collaboration workflow:
 
 ```markdown
-# GLM-CODEX Collaboration
-
-GLM is the code executor, Codex is the code reviewer. **All decision-making authority belongs to Claude**.
-
-## Core Workflow
-
-1. **GLM Executes**: Delegate all modification tasks to GLM
-2. **Claude Verifies**: Quick check after GLM completes, fix issues yourself
-3. **Codex Reviews**: Call review after milestone development; if issues found, delegate to GLM for fixes, then re-enter **Claude Verifies**, iterate until fully passed.
+# Global Protocol
 
 ## Mandatory Rules
 
@@ -176,19 +175,39 @@ GLM is the code executor, Codex is the code reviewer. **All decision-making auth
 - **Skip Requires Confirmation**: If you determine collaboration is unnecessary, **must immediately pause** and report:
   > "This is a simple [description] task, I judge GLM/Codex is not needed. Do you agree? Waiting for your confirmation."
 - **Violation = Termination**: Skipping GLM execution or Codex review without confirmation = **workflow violation**
+- **Skill First**: Before calling MCP tools, **read the corresponding Skill first** (`glm-codex-workflow`, `gemini-collaboration`) to understand best practices
+- **Session Reuse**: Always save `SESSION_ID` to maintain context
 
-## Quick Reference
+---
 
-| Tool | Purpose | sandbox | Retry |
-|------|---------|---------|-------|
-| GLM | Execute modifications | workspace-write | No retry by default |
-| Codex | Code review | read-only | 1 retry by default |
+# AI Collaboration System
 
-**Session Reuse**: Save `SESSION_ID` to maintain context
+**Claude is the final decision maker**. All AI opinions are for reference only; think critically to make optimal decisions.
 
-## Independent Decision
+## Role Distribution
 
-GLM/Codex opinions are for reference only. Claude is the final decision maker, think critically.
+| Role | Position | Purpose | sandbox | Retry |
+|------|----------|---------|---------|-------|
+| **GLM** | Code Executor | Generate/modify code, batch tasks | workspace-write | No retry by default |
+| **Codex** | Reviewer/Senior Consultant | Architecture design, quality control, Review | read-only | 1 retry by default |
+| **Gemini** | Senior Consultant (On-demand) | Architecture design, second opinion, frontend/UI | workspace-write (yolo) | 1 retry by default |
+
+## Core Workflow
+
+1. **GLM Executes**: Delegate all modification tasks to GLM
+2. **Claude Verifies**: Quick check after GLM completes; Claude fixes issues directly
+3. **Codex Reviews**: Call review after milestone development; if issues found, delegate to GLM for fixes, iterate until passed
+
+## Pre-coding Preparation (Complex Tasks)
+
+1. Search for affected symbols/entry points
+2. List files that need modification
+3. For complex issues, consult with Codex or Gemini first
+
+## Gemini Trigger Scenarios
+
+- **User Explicit Request**: User specifies using Gemini
+- **Claude Autonomous Call**: When designing frontend/UI, or need second opinion/independent perspective
 ```
 
 > **Note**: Pure MCP works too, but Skills + Global Prompt configuration is recommended for the best experience.
@@ -215,7 +234,8 @@ For a smoother experience, add automatic authorization in `~/.claude/settings.js
   "permissions": {
     "allow": [
       "mcp__glm-codex__glm",
-      "mcp__glm-codex__codex"
+      "mcp__glm-codex__codex",
+      "mcp__glm-codex__gemini"
     ]
   }
 }
@@ -261,6 +281,34 @@ Calls Codex for independent and strict code review.
 | `log_metrics` | bool | - | `false` | Whether to output metrics to stderr |
 | `yolo` | bool | - | `false` | Run all commands without approval (skip sandbox) |
 | `profile` | string | - | `""` | Config profile name from ~/.codex/config.toml |
+
+### `gemini` - Versatile Expert (Optional)
+
+Calls Gemini CLI for code execution, technical consultation, or code review. A top-tier AI expert on par with Claude.
+
+| Parameter | Type | Required | Default | Description |
+| :--- | :--- | :---: | :--- | :--- |
+| `PROMPT` | string | ✅ | - | Task instructions with sufficient context |
+| `cd` | Path | ✅ | - | Working directory |
+| `sandbox` | string | - | `workspace-write` | Sandbox policy, write allowed by default (flexible) |
+| `yolo` | bool | - | `true` | Skip approval, enabled by default |
+| `SESSION_ID` | string | - | `""` | Session ID for multi-turn conversations |
+| `model` | string | - | `gemini-3-pro-preview` | Specify model version |
+| `return_all_messages` | bool | - | `false` | Whether to return full conversation history |
+| `return_metrics` | bool | - | `false` | Whether to include metrics in return value |
+| `timeout` | int | - | `300` | Idle timeout (seconds) |
+| `max_duration` | int | - | `1800` | Max duration limit (seconds) |
+| `max_retries` | int | - | `1` | Max retry count |
+| `log_metrics` | bool | - | `false` | Whether to output metrics to stderr |
+
+**Roles**:
+- 🧠 **Senior Consultant**: Architecture design, technology selection, complex solution discussions
+- ⚖️ **Independent Reviewer**: Code review, solution evaluation, quality assurance
+- 🔨 **Code Executor**: Prototype development, feature implementation (especially frontend/UI)
+
+**Trigger Scenarios**:
+- User explicitly requests Gemini
+- Claude needs a second opinion or independent perspective
 
 ### Timeout Mechanism
 

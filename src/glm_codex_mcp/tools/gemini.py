@@ -1,14 +1,13 @@
-"""Codex 工具实现
+"""Gemini 工具实现
 
-调用 Codex 进行代码审核。
-复用 CodexMCP 的核心逻辑。
+调用 Gemini CLI 进行代码执行、技术咨询或代码审核。
+Gemini 是多面手，权限灵活，由 Claude 按场景控制。
 """
 
 from __future__ import annotations
 
 import json
 import queue
-import re
 import shutil
 import subprocess
 import sys
@@ -143,19 +142,21 @@ class MetricsCollector:
 # 命令执行
 # ============================================================================
 
-def run_codex_command(
+def run_gemini_command(
     cmd: list[str],
     timeout: int = 300,
     max_duration: int = 1800,
     prompt: str = "",
+    cwd: Optional[Path] = None,
 ) -> Generator[str, None, tuple[Optional[int], int]]:
-    """执行 Codex 命令并流式返回输出
+    """执行 Gemini 命令并流式返回输出
 
     Args:
         cmd: 命令和参数列表
         timeout: 空闲超时（秒），无输出超过此时间触发超时，默认 300 秒（5 分钟）
         max_duration: 总时长硬上限（秒），默认 1800 秒（30 分钟），0 表示无限制
         prompt: 通过 stdin 传递的 prompt 内容
+        cwd: 工作目录
 
     Yields:
         输出行
@@ -164,17 +165,17 @@ def run_codex_command(
         (exit_code, raw_output_lines) 元组
 
     Raises:
-        CommandNotFoundError: codex CLI 未安装时抛出
+        CommandNotFoundError: gemini CLI 未安装时抛出
         CommandTimeoutError: 命令执行超时时抛出
     """
-    codex_path = shutil.which('codex')
-    if not codex_path:
+    gemini_path = shutil.which('gemini')
+    if not gemini_path:
         raise CommandNotFoundError(
-            "未找到 codex CLI。请确保已安装 Codex CLI 并添加到 PATH。\n"
-            "安装指南：https://developers.openai.com/codex/quickstart"
+            "未找到 gemini CLI。请确保已安装 Gemini CLI 并添加到 PATH。\n"
+            "安装指南：https://github.com/google-gemini/gemini-cli"
         )
     popen_cmd = cmd.copy()
-    popen_cmd[0] = codex_path
+    popen_cmd[0] = gemini_path
 
     process = subprocess.Popen(
         popen_cmd,
@@ -184,6 +185,7 @@ def run_codex_command(
         stderr=subprocess.STDOUT,
         universal_newlines=True,
         encoding='utf-8',
+        cwd=str(cwd) if cwd else None,
     )
 
     # 通过 stdin 传递 prompt，然后关闭 stdin
@@ -208,6 +210,7 @@ def run_codex_command(
         """检查是否回合完成"""
         try:
             data = json.loads(line)
+            # Gemini CLI 使用 turn.completed 表示回合完成
             return data.get("type") == "turn.completed"
         except (json.JSONDecodeError, AttributeError, TypeError):
             return False
@@ -243,7 +246,7 @@ def run_codex_command(
         # 检查总时长硬上限（优先级高）
         if max_duration > 0 and (now - start_time) >= max_duration:
             timeout_error = CommandTimeoutError(
-                f"codex 执行超时（总时长超过 {max_duration}s），进程已终止。",
+                f"gemini 执行超时（总时长超过 {max_duration}s），进程已终止。",
                 is_idle=False
             )
             break
@@ -251,7 +254,7 @@ def run_codex_command(
         # 检查空闲超时
         if (now - last_activity_time) >= timeout:
             timeout_error = CommandTimeoutError(
-                f"codex 空闲超时（{timeout}s 无输出），进程已终止。",
+                f"gemini 空闲超时（{timeout}s 无输出），进程已终止。",
                 is_idle=True
             )
             break
@@ -291,7 +294,7 @@ def run_codex_command(
             process.wait()
         # 进程等待超时（罕见情况），视为总时长超时
         timeout_error = CommandTimeoutError(
-            f"codex 进程等待超时，进程已终止。",
+            f"gemini 进程等待超时，进程已终止。",
             is_idle=False
         )
     finally:
@@ -314,29 +317,30 @@ def run_codex_command(
 
 
 @contextmanager
-def safe_codex_command(
+def safe_gemini_command(
     cmd: list[str],
     timeout: int = 300,
     max_duration: int = 1800,
     prompt: str = "",
+    cwd: Optional[Path] = None,
 ) -> Iterator[Generator[str, None, tuple[Optional[int], int]]]:
-    """安全执行 Codex 命令的上下文管理器
+    """安全执行 Gemini 命令的上下文管理器
 
     确保在任何情况下（包括异常）都能正确清理子进程。
 
     用法:
-        with safe_codex_command(cmd, timeout, max_duration, prompt) as gen:
+        with safe_gemini_command(cmd, timeout, max_duration, prompt, cwd) as gen:
             for line in gen:
                 process_line(line)
     """
-    codex_path = shutil.which('codex')
-    if not codex_path:
+    gemini_path = shutil.which('gemini')
+    if not gemini_path:
         raise CommandNotFoundError(
-            "未找到 codex CLI。请确保已安装 Codex CLI 并添加到 PATH。\n"
-            "安装指南：https://developers.openai.com/codex/quickstart"
+            "未找到 gemini CLI。请确保已安装 Gemini CLI 并添加到 PATH。\n"
+            "安装指南：https://github.com/google-gemini/gemini-cli"
         )
     popen_cmd = cmd.copy()
-    popen_cmd[0] = codex_path
+    popen_cmd[0] = gemini_path
 
     process = subprocess.Popen(
         popen_cmd,
@@ -346,6 +350,7 @@ def safe_codex_command(
         stderr=subprocess.STDOUT,
         universal_newlines=True,
         encoding='utf-8',
+        cwd=str(cwd) if cwd else None,
     )
 
     thread: Optional[threading.Thread] = None
@@ -436,14 +441,14 @@ def safe_codex_command(
 
                 if max_duration > 0 and (now - start_time) >= max_duration:
                     timeout_error = CommandTimeoutError(
-                        f"codex 执行超时（总时长超过 {max_duration}s），进程已终止。",
+                        f"gemini 执行超时（总时长超过 {max_duration}s），进程已终止。",
                         is_idle=False
                     )
                     break
 
                 if (now - last_activity_time) >= timeout:
                     timeout_error = CommandTimeoutError(
-                        f"codex 空闲超时（{timeout}s 无输出），进程已终止。",
+                        f"gemini 空闲超时（{timeout}s 无输出），进程已终止。",
                         is_idle=True
                     )
                     break
@@ -474,7 +479,7 @@ def safe_codex_command(
                     process.kill()
                     process.wait()
                 timeout_error = CommandTimeoutError(
-                    f"codex 进程等待超时，进程已终止。",
+                    f"gemini 进程等待超时，进程已终止。",
                     is_idle=False
                 )
             finally:
@@ -536,7 +541,7 @@ def _build_error_detail(
 def _is_retryable_error(error_kind: Optional[str], err_message: str) -> bool:
     """判断错误是否可以重试
 
-    Codex 是只读操作，大部分错误都可以安全重试。
+    Gemini 默认 yolo 模式，大部分错误都可以安全重试。
     排除：命令不存在（需要用户干预）
     """
     if error_kind == ErrorKind.COMMAND_NOT_FOUND:
@@ -549,35 +554,23 @@ def _is_retryable_error(error_kind: Optional[str], err_message: str) -> bool:
 # 主工具函数
 # ============================================================================
 
-async def codex_tool(
-    PROMPT: Annotated[str, "审核任务描述"],
+async def gemini_tool(
+    PROMPT: Annotated[str, "任务指令，需提供充分背景信息"],
     cd: Annotated[Path, "工作目录"],
     sandbox: Annotated[
         Literal["read-only", "workspace-write", "danger-full-access"],
-        Field(description="沙箱策略，默认只读"),
-    ] = "read-only",
-    SESSION_ID: Annotated[str, "会话 ID，用于多轮对话"] = "",
-    skip_git_repo_check: Annotated[
-        bool,
-        "允许在非 Git 仓库中运行",
-    ] = True,
-    return_all_messages: Annotated[bool, "是否返回完整消息"] = False,
-    return_metrics: Annotated[bool, "是否在返回值中包含指标数据"] = False,
-    image: Annotated[
-        Optional[List[Path]],
-        Field(description="附加图片文件路径列表"),
-    ] = None,
-    model: Annotated[
-        str,
-        Field(description="指定模型，默认使用 Codex 自己的配置"),
-    ] = "",
+        Field(description="沙箱策略，默认允许写工作区"),
+    ] = "workspace-write",
     yolo: Annotated[
         bool,
-        Field(description="无需审批运行所有命令（跳过沙箱）"),
-    ] = False,
-    profile: Annotated[
+        Field(description="无需审批运行所有命令（跳过沙箱），默认 true"),
+    ] = True,
+    SESSION_ID: Annotated[str, "会话 ID，用于多轮对话"] = "",
+    return_all_messages: Annotated[bool, "是否返回完整消息"] = False,
+    return_metrics: Annotated[bool, "是否在返回值中包含指标数据"] = False,
+    model: Annotated[
         str,
-        "从 ~/.codex/config.toml 加载的配置文件名称",
+        Field(description="指定模型版本"),
     ] = "",
     timeout: Annotated[
         int,
@@ -587,49 +580,62 @@ async def codex_tool(
         int,
         Field(description="总时长硬上限（秒），默认 1800 秒（30 分钟），0 表示无限制"),
     ] = 1800,
-    max_retries: Annotated[int, "最大重试次数，默认 1（Codex 只读可安全重试）"] = 1,
+    max_retries: Annotated[int, "最大重试次数，默认 1"] = 1,
     log_metrics: Annotated[bool, "是否将指标输出到 stderr"] = False,
 ) -> Dict[str, Any]:
-    """执行 Codex 代码审核
+    """执行 Gemini 任务
 
-    调用 Codex 进行代码审核。
+    调用 Gemini CLI 进行代码执行、技术咨询或代码审核。
 
-    **角色定位**：代码审核者
-    - 检查代码质量（可读性、可维护性、潜在 bug）
-    - 评估需求完成度
-    - 给出明确结论：✅ 通过 / ⚠️ 建议优化 / ❌ 需要修改
+    **角色定位**：多面手（与 Claude、Codex 同等级别的顶级 AI 专家）
+    - 🧠 高阶顾问：架构设计、技术选型、复杂方案讨论
+    - ⚖️ 独立审核：代码 Review、方案评审、质量把关
+    - 🔨 代码执行：原型开发、功能实现（尤其擅长前端/UI）
 
-    **注意**：Codex 仅审核，严禁修改代码，默认 sandbox 为 read-only
-    **重试策略**：Codex 默认允许 1 次重试（只读操作无副作用）
+    **使用场景**：
+    - 用户明确要求使用 Gemini
+    - 需要第二意见或独立视角
+    - 架构设计和技术讨论
+    - 前端/UI 原型开发
+
+    **注意**：Gemini 权限灵活，默认 yolo=true，由 Claude 按场景控制
+    **重试策略**：默认允许 1 次重试
     """
     # 初始化指标收集器
-    metrics = MetricsCollector(tool="codex", prompt=PROMPT, sandbox=sandbox)
+    sandbox_str = "yolo" if yolo else sandbox
+    metrics = MetricsCollector(tool="gemini", prompt=PROMPT, sandbox=sandbox_str)
 
-    # 归一化可选参数
-    image_list = image or []
+    # 构建命令
+    # gemini CLI 命令格式: gemini [options]
+    # 使用 -y/--yolo 跳过确认，--sandbox 启用沙箱
+    # 参考: https://geminicli.com/docs/cli/headless/
+    cmd = ["gemini"]
 
-    # 构建命令（shell=False 时不需要转义）
-    cmd = ["codex", "exec", "--sandbox", sandbox, "--cd", str(cd), "--json"]
+    # 添加流式 JSON 输出格式（用于 headless mode）
+    cmd.extend(["--output-format", "stream-json"])
 
-    if image_list:
-        cmd.extend(["--image", ",".join(str(p) for p in image_list)])
+    # 注意：gemini CLI 没有 --dir 参数，使用 --include-directories 或依赖 cwd
+    # 工作目录通过 subprocess 的 cwd 参数设置
 
-    if model:
-        cmd.extend(["--model", model])
-
-    if profile:
-        cmd.extend(["--profile", profile])
-
+    # 设置沙箱模式和审批模式
     if yolo:
+        # yolo 模式：自动批准所有操作
         cmd.append("--yolo")
+    else:
+        # 非 yolo 模式：根据 sandbox 设置
+        if sandbox == "read-only":
+            # read-only 需要启用 sandbox
+            cmd.append("--sandbox")
 
-    if skip_git_repo_check:
-        cmd.append("--skip-git-repo-check")
+    # 指定模型（默认使用 gemini-3-pro-preview）
+    model_to_use = model if model else "gemini-3-pro-preview"
+    cmd.extend(["--model", model_to_use])
 
+    # 会话恢复
     if SESSION_ID:
-        cmd.extend(["resume", str(SESSION_ID)])
+        cmd.extend(["--resume", SESSION_ID])
 
-    # PROMPT 通过 stdin 传递，不再作为命令行参数
+    # PROMPT 通过 stdin 传递
 
     # 执行循环（支持重试）
     retries = 0
@@ -641,7 +647,7 @@ async def codex_tool(
         agent_messages = ""
         had_error = False
         err_message = ""
-        thread_id: Optional[str] = None
+        session_id: Optional[str] = None
         exit_code: Optional[int] = None
         raw_output_lines = 0
         json_decode_errors = 0
@@ -649,7 +655,7 @@ async def codex_tool(
         last_lines: list[str] = []
 
         try:
-            with safe_codex_command(cmd, timeout=timeout, max_duration=max_duration, prompt=PROMPT) as gen:
+            with safe_gemini_command(cmd, timeout=timeout, max_duration=max_duration, prompt=PROMPT, cwd=cd) as gen:
                 try:
                     for line in gen:
                         last_lines.append(line)
@@ -660,34 +666,45 @@ async def codex_tool(
                             line_dict = json.loads(line.strip())
                             all_messages.append(line_dict)
 
-                            item = line_dict.get("item", {})
-                            item_type = item.get("type", "")
+                            # stream-json 事件类型: init, message, tool_use, tool_result, error, result
+                            # 参考: https://geminicli.com/docs/cli/headless/
+                            event_type = line_dict.get("type", "")
 
-                            if item_type == "agent_message":
-                                agent_messages += item.get("text", "")
+                            # 提取 message 事件中的内容
+                            if event_type == "message":
+                                # message 事件包含 role 和 content
+                                role = line_dict.get("role", "")
+                                content = line_dict.get("content", "")
+                                if role == "assistant" and content:
+                                    agent_messages += content
 
-                            if line_dict.get("thread_id") is not None:
-                                thread_id = line_dict.get("thread_id")
+                            # 提取 result 事件（最终统计）
+                            if event_type == "result":
+                                # result 事件包含 response 和统计信息
+                                response = line_dict.get("response", "")
+                                if response:
+                                    # 如果 result 中有完整响应，使用它
+                                    if not agent_messages:
+                                        agent_messages = response
 
-                            # 错误处理：记录错误但不立即判断成功与否
-                            if "fail" in line_dict.get("type", ""):
+                            # 提取 session_id (Gemini 可能在 init 事件中返回)
+                            if event_type == "init":
+                                if line_dict.get("session_id") is not None:
+                                    session_id = line_dict.get("session_id")
+                                if line_dict.get("thread_id") is not None:
+                                    session_id = line_dict.get("thread_id")
+
+                            # 错误处理
+                            if event_type == "error":
                                 had_error = True
-                                err_message += "\n\n[codex error] " + line_dict.get("error", {}).get("message", "")
+                                err_message += "\n\n[gemini error] " + line_dict.get("message", str(line_dict))
                                 error_kind = ErrorKind.UPSTREAM_ERROR
 
-                            if "error" in line_dict.get("type", ""):
-                                error_msg = line_dict.get("message", "")
-                                is_reconnecting = bool(re.match(r'^Reconnecting\.\.\.\s+\d+/\d+$', error_msg))
-
-                                if not is_reconnecting:
-                                    had_error = True
-                                    err_message += "\n\n[codex error] " + error_msg
-                                    error_kind = ErrorKind.UPSTREAM_ERROR
-
                         except json.JSONDecodeError:
-                            # JSON 解析失败记录但不影响成功判定
+                            # JSON 解析失败，记录错误计数
                             json_decode_errors += 1
-                            err_message += "\n\n[json decode error] " + line
+                            # 非 JSON 输出记录到日志但不作为响应内容
+                            # 避免将 CLI 警告/错误文本误认为成功结果
                             continue
 
                         except Exception as error:
@@ -711,7 +728,7 @@ async def codex_tool(
 
             result: Dict[str, Any] = {
                 "success": False,
-                "tool": "codex",
+                "tool": "gemini",
                 "error": str(e),
                 "error_kind": ErrorKind.COMMAND_NOT_FOUND,
                 "error_detail": _build_error_detail(str(e)),
@@ -725,8 +742,8 @@ async def codex_tool(
             error_kind = ErrorKind.IDLE_TIMEOUT if e.is_idle else ErrorKind.TIMEOUT
             had_error = True
             err_message = str(e)
-            success = False  # 明确设置为失败
-            # 超时可以重试（Codex 只读）
+            success = False
+            # 超时可以重试
             if retries < max_retries:
                 all_last_lines = last_lines.copy()
                 last_error = {
@@ -757,17 +774,18 @@ async def codex_tool(
         if had_error:
             success = False
 
-        if thread_id is None:
-            success = False
-            if not error_kind:
-                error_kind = ErrorKind.PROTOCOL_MISSING_SESSION
-            err_message = "未能获取 SESSION_ID。\n\n" + err_message
+        # Gemini 可能不返回 session_id，这不算失败
+        # if session_id is None:
+        #     success = False
+        #     if not error_kind:
+        #         error_kind = ErrorKind.PROTOCOL_MISSING_SESSION
+        #     err_message = "未能获取 SESSION_ID。\n\n" + err_message
 
         if not agent_messages:
             success = False
             if not error_kind:
                 error_kind = ErrorKind.EMPTY_RESULT
-            err_message = "未能获取 Codex 响应内容。可尝试设置 return_all_messages=True 获取详细信息。\n\n" + err_message
+            err_message = "未能获取 Gemini 响应内容。可尝试设置 return_all_messages=True 获取详细信息。\n\n" + err_message
 
         # 检查退出码
         if exit_code is not None and exit_code != 0 and success:
@@ -822,8 +840,8 @@ async def codex_tool(
     if success:
         result = {
             "success": True,
-            "tool": "codex",
-            "SESSION_ID": thread_id,
+            "tool": "gemini",
+            "SESSION_ID": session_id,
             "result": agent_messages,
             "duration": metrics.format_duration(),
         }
@@ -837,7 +855,7 @@ async def codex_tool(
 
         result = {
             "success": False,
-            "tool": "codex",
+            "tool": "gemini",
             "error": err_message,
             "error_kind": error_kind,
             "error_detail": _build_error_detail(
