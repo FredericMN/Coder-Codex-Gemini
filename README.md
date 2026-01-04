@@ -299,7 +299,7 @@ cp -r skills/gemini-collaboration ~/.claude/skills/
 
 **执行流程**：
 1. 用户请求使用 Coder/Codex/Gemini
-2. **立即执行对应 Skill**（如 `/ccg-workflow`）
+2. **立即执行对应 Skill**（如 `/ccg-workflow`、`/gemini-collaboration`）
 3. 阅读 Skill 返回的指导内容
 4. 按照指导调用 MCP 工具
 

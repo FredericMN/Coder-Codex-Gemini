@@ -13,7 +13,7 @@ description: |
 - **Claude**：架构师 + 验收者 + 最终决策者
 - **Coder**：执行者（代码/文档改动）
 - **Codex**：审核者 + 高级代码顾问
-- **Gemini**：高阶顾问（按需）
+- **Gemini**：高阶顾问（按需） → 详见 `/gemini-collaboration`
 
 ## 核心流程
 
@@ -45,6 +45,8 @@ Coder 执行完毕后，Claude 快速读取验收：
 | Coder | 执行改动 | workspace-write | 默认不重试 |
 | Codex | 代码审核 | read-only | 默认 1 次 |
 | Gemini | 顾问/执行 | workspace-write (yolo) | 默认 1 次 |
+
+> 💡 **Gemini 详细指南**：如需了解 Gemini 的具体调用方式和触发场景，请执行 `/gemini-collaboration` 技能。
 
 **会话复用**：保存 `SESSION_ID` 保持上下文。
 
