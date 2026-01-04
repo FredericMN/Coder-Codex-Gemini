@@ -240,8 +240,27 @@ Add mandatory rules to `~/.claude/CLAUDE.md` to ensure Claude follows the collab
 - **Skip Requires Confirmation**: If you determine collaboration is unnecessary, **must immediately pause** and report:
   > "This is a simple [description] task, I judge Coder/Codex is not needed. Do you agree? Waiting for your confirmation."
 - **Violation = Termination**: Skipping Coder execution or Codex review without confirmation = **workflow violation**
-- **Skill First**: Before calling MCP tools, **read the corresponding Skill first** (`ccg-workflow`, `gemini-collaboration`) to understand best practices
 - **Session Reuse**: Always save `SESSION_ID` to maintain context
+
+## ⚠️ Skill Reading Prerequisite (Mandatory)
+
+**Before calling any CCG MCP tool, you must first execute the corresponding Skill to get best practice guidance:**
+
+| MCP Tool | Prerequisite Skill | Action |
+|----------|-------------------|--------|
+| `mcp__ccg__coder` | `/ccg-workflow` | Must execute first |
+| `mcp__ccg__codex` | `/ccg-workflow` | Must execute first |
+| `mcp__ccg__gemini` | `/gemini-collaboration` | Must execute first |
+
+**Execution Flow**:
+1. User requests to use Coder/Codex/Gemini
+2. **Immediately execute the corresponding Skill** (e.g., `/ccg-workflow`)
+3. Read the guidance content returned by the Skill
+4. Call MCP tool following the guidance
+
+**Prohibited Behaviors**:
+- ❌ Skip Skill and directly call MCP tool
+- ❌ Assume you already know best practices without executing Skill
 
 ---
 
