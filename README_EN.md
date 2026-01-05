@@ -31,6 +31,15 @@ CCG-MCP connects multiple top-tier models to build an efficient, cost-effective,
 | **🔄 Fully Automated Loop** | Supports a fully automated flow of `Decompose` → `Execute` → `Review` → `Retry`, minimizing human intervention. |
 | **🔧 Flexible Architecture** | **Skills + MCP** hybrid architecture: MCP provides tool capabilities, Skills provides workflow guidance, on-demand loading saves tokens. |
 
+### 📊 Case Study
+
+**[Unit Test Batch Generation](cases/2025-01-05-unit-test-generation/README.md)** - CCG Architecture Real-World Test
+
+- **Task**: Generated 7,488 lines of unit test code (481 test cases) for a backend project
+- **Total Cost Savings**: **82%** ($3.13 → $0.55)
+- **Opus Cost Savings**: **91%** ($3.13 → $0.29)
+- **Key Advantage**: Claude doesn't output expensive code tokens, only concise instructions, leveraging cheap input pricing for review work
+
 ## 🤖 Roles & Collaboration
 
 In this system, each model has a clear responsibility:
