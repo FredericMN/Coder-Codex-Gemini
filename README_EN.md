@@ -30,15 +30,7 @@ CCG-MCP connects multiple top-tier models to build an efficient, cost-effective,
 | **🛡️ Quality Assurance** | Introduces a dual-review mechanism: **Claude Initial Review** + **Codex Final Review** to ensure code robustness. |
 | **🔄 Fully Automated Loop** | Supports a fully automated flow of `Decompose` → `Execute` → `Review` → `Retry`, minimizing human intervention. |
 | **🔧 Flexible Architecture** | **Skills + MCP** hybrid architecture: MCP provides tool capabilities, Skills provides workflow guidance, on-demand loading saves tokens. |
-
-### 📊 Case Study
-
-**[Unit Test Batch Generation](cases/2025-01-05-unit-test-generation/README.md)** - CCG Architecture Real-World Test
-
-- **Task**: Generated 7,488 lines of unit test code (481 test cases) for a backend project
-- **Total Cost Savings**: **82%** ($3.13 → $0.55)
-- **Opus Cost Savings**: **91%** ($3.13 → $0.29)
-- **Key Advantage**: Claude doesn't output expensive code tokens, only concise instructions, leveraging cheap input pricing for review work
+| **🔄 Context Preservation** | **SESSION_ID** session reuse ensures coherent multi-turn collaboration context, enabling stable execution of long tasks without information loss. |
 
 ## 🤖 Roles & Collaboration
 
@@ -53,6 +45,24 @@ In this system, each model has a clear responsibility:
     *   Responsible for independent code quality control, providing objective Code Reviews, and serving as a consultant for architecture design and complex solutions.
 *   **Gemini**: 🧠 **Versatile Expert (Optional)**
     *   A top-tier AI expert on par with Claude. Can serve as senior consultant, independent reviewer, or code executor. Invoked on-demand.
+
+### 📊 Case Study
+
+**[Unit Test Batch Generation](cases/2025-01-05-unit-test-generation/README.md)** - CCG Architecture Real-World Test
+
+| Metric | Pure Claude Approach | CCG Collaborative Approach | Notes |
+| :--- | :--- | :--- | :--- |
+| **Task Scale** | 7,488 lines of code (481 test cases) | 7,488 lines of code (481 test cases) | Unit test generation for a backend project |
+| **Total Cost** | $3.13 | $0.55 | **82% savings** |
+| **Claude Cost** | $3.13 | $0.29 | **91% savings** (architecture orchestration only) |
+| **Coder Cost** | $0 | $0.26 | Handles heavy code generation tasks |
+| **Quality Review** | ❌ No independent review | ✅ Claude Initial Review + Codex Final Review | Dual quality gates, controllable code quality |
+
+**Key Advantages**:
+- 💰 **Cost Optimization**: Claude outputs only concise instructions, leveraging cheap input pricing for review work, avoiding expensive code token output
+- 🔄 **Context Preservation**: SESSION_ID session reuse mechanism ensures coherent multi-turn collaboration context, enabling stable execution of long tasks
+- ⚡ **Long-Task Stability**: Optimized task decomposition and retry strategies ensure stable completion of large tasks (e.g., batch generating 7,488 lines of test code)
+- 🛡️ **Quality Assurance**: Dual-review mechanism (Claude Initial Review + Codex Final Review), controllable code quality
 
 ### Collaboration Workflow
 
