@@ -73,6 +73,19 @@ if ($DryRun) {
 # ==============================================================================
 Write-Step "Step 1: Checking dependencies..."
 
+# Helper function to refresh PATH by merging registry PATH with current session PATH
+function Refresh-PathFromRegistry {
+    $registryPath = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $currentPath = $env:Path
+    # Merge: add registry paths that are not already in current PATH
+    $currentPaths = $currentPath -split ';' | Where-Object { $_ -ne '' }
+    $registryPaths = $registryPath -split ';' | Where-Object { $_ -ne '' }
+    $newPaths = $registryPaths | Where-Object { $_ -notin $currentPaths }
+    if ($newPaths) {
+        $env:Path = $currentPath + ";" + ($newPaths -join ';')
+    }
+}
+
 # Check uv
 $uvInstalled = $false
 try {
@@ -80,22 +93,30 @@ try {
     $uvInstalled = $true
     Write-Success "uv is installed"
 } catch {
-    if ($DryRun) {
-        Write-WarningMsg "uv is not installed"
-        Write-DryRun "Would install uv automatically"
-    } else {
-        Write-WarningMsg "uv is not installed, installing automatically..."
-        try {
-            powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-            # Refresh PATH
-            $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
-            $null = uv --version 2>&1
-            $uvInstalled = $true
-            Write-Success "uv installed successfully"
-        } catch {
-            Write-ErrorMsg "Failed to install uv automatically"
-            Write-Host "Please install uv manually: https://github.com/astral-sh/uv" -ForegroundColor Yellow
-            exit 1
+    # Try refreshing PATH from registry (may help find tools installed by npm, scoop, etc.)
+    Refresh-PathFromRegistry
+    try {
+        $null = uv --version 2>&1
+        $uvInstalled = $true
+        Write-Success "uv is installed"
+    } catch {
+        if ($DryRun) {
+            Write-WarningMsg "uv is not installed"
+            Write-DryRun "Would install uv automatically"
+        } else {
+            Write-WarningMsg "uv is not installed, installing automatically..."
+            try {
+                powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+                # Refresh PATH again after installation
+                Refresh-PathFromRegistry
+                $null = uv --version 2>&1
+                $uvInstalled = $true
+                Write-Success "uv installed successfully"
+            } catch {
+                Write-ErrorMsg "Failed to install uv automatically"
+                Write-Host "Please install uv manually: https://github.com/astral-sh/uv" -ForegroundColor Yellow
+                exit 1
+            }
         }
     }
 }
@@ -107,13 +128,26 @@ try {
     $claudeInstalled = $true
     Write-Success "claude CLI is installed"
 } catch {
-    if ($DryRun) {
-        Write-WarningMsg "claude CLI is not installed"
-        Write-DryRun "Would require claude CLI to be installed before running"
-    } else {
-        Write-ErrorMsg "claude CLI is not installed"
-        Write-Host "Please install Claude Code CLI first: https://docs.anthropic.com/en/docs/claude-code" -ForegroundColor Yellow
-        exit 1
+    # Try refreshing PATH from registry (may help find tools installed by npm, scoop, etc.)
+    Refresh-PathFromRegistry
+    try {
+        $null = claude --version 2>&1
+        $claudeInstalled = $true
+        Write-Success "claude CLI is installed"
+    } catch {
+        if ($DryRun) {
+            Write-WarningMsg "claude CLI is not installed"
+            Write-DryRun "Would require claude CLI to be installed before running"
+        } else {
+            Write-ErrorMsg "claude CLI is not installed"
+            Write-Host "Please install Claude Code CLI first: https://docs.anthropic.com/en/docs/claude-code" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "If you have already installed claude CLI, please check:" -ForegroundColor Yellow
+            Write-Host "  1. Restart your terminal to refresh PATH" -ForegroundColor White
+            Write-Host "  2. Ensure claude is in your PATH: where.exe claude" -ForegroundColor White
+            Write-Host "  3. For npm install: npm install -g @anthropic-ai/claude-code" -ForegroundColor White
+            exit 1
+        }
     }
 }
 
